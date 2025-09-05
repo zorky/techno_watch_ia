@@ -15,6 +15,7 @@ dependencies = [
     "langgraph>=0.6.6",
     "opml>=0.5",
     "pydantic>=2.11.7",
+    "python-dateutil>=2.9.0.post0",
     "scikit-learn>=1.7.1",
     "sentence-transformers>=5.1.0",
 ]

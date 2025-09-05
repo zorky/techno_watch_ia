@@ -53,6 +53,7 @@ Installation et Configuration :
 import logging
 import argparse
 import time
+from datetime import datetime, timedelta
 from functools import wraps
 from colorama import Fore, Style, init
 from dotenv import load_dotenv
@@ -168,22 +169,6 @@ def measure_time(func):
 # Fonctions utilitaires
 # =========================
 
-# def get_or_create_index(keywords, model, index_path="keywords_index.faiss"):
-#     import os
-#     import faiss
-#     if os.path.exists(index_path):
-#             logger.info("🔍 Chargement de l'index FAISS existant...")
-#             return faiss.read_index(index_path)
-#     else:
-#         logger.info("🔧 Création d'un nouvel index FAISS...")
-#         keyword_embeddings = model.encode(keywords, convert_to_tensor=True, show_progress_bar=False)
-#         keyword_embeddings = keyword_embeddings.cpu().numpy()
-#         faiss.normalize_L2(keyword_embeddings)
-#         index = faiss.IndexFlatIP(keyword_embeddings.shape[1])
-#         index.add(keyword_embeddings)
-#         faiss.write_index(index, index_path)
-#         return index
-
 @measure_time
 def filter_articles_with_faiss(articles, keywords, threshold=0.7, index_path="keywords_index.faiss", show_progress=False):
     """
@@ -276,19 +261,34 @@ Contenu : {content}
         logger.debug(Fore.MAGENTA + "--- RÉPONSE BRUTE DU LLM ---\n" + str(result) + "\n---------------------------")
     return result.content.strip() if hasattr(result, "content") else str(result).strip()
 
-def fetch_rss_articles(rss_urls):
+def fetch_rss_articles(rss_urls, max_age_days=3):
+    """
+    Récupère les articles des flux RSS, en ne gardant que ceux publiés dans les `max_age_days` derniers jours.
+    """
     articles = []
+    cutoff_date = datetime.now() - timedelta(days=max_age_days)
+    logger.info(f"seuil date : {cutoff_date}")
     for url in rss_urls:
         logger.info(Fore.BLUE + f"Lecture du flux RSS : {url}")
         feed = feedparser.parse(url)
+        recent_in_feed = 0
+
         for entry in feed.entries:
-            articles.append({
-                "title": entry.title,
-                "summary": entry.summary,
-                "link": entry.link
-            })
-        logger.info(f"{len(feed.entries)} articles trouvés dans ce flux")
-    logger.debug(f"{len(articles)} articles récupérés au total")
+            published_time = None
+            if hasattr(entry, 'published_parsed'):
+                published_time = datetime(*entry.published_parsed[:6])
+            # logger.info(f"Article: {entry.title} (publié le {published_time}) : {published_time >= cutoff_date if published_time else 'date inconnue'}")            
+            if published_time and published_time >= cutoff_date:
+                articles.append({
+                    "title": entry.title,
+                    "summary": entry.summary,
+                    "link": entry.link,
+                })
+                recent_in_feed += 1
+
+        logger.info(f"{len(feed.entries)} articles trouvés, {recent_in_feed} récents !")
+
+    logger.debug(f"{len(articles)} articles récents récupérés")
     return articles
 
 def filter_articles_by_keywords(articles, keywords):
@@ -334,7 +334,7 @@ def filter_node(state: RSSState):
     # filtered = filter_articles_by_keywords(state.articles, state.keywords)
     # logger.info(f"{len(filtered)} articles correspondent aux mots-clés")
 
-    filtered = filter_articles_with_faiss(state.articles, state.keywords, threshold=0.5)
+    filtered = filter_articles_with_faiss(state.articles, state.keywords, threshold=0.2)
     logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
     
     # filtered = filter_articles_with_tfidf(state.articles, state.keywords, threshold=0.3)
