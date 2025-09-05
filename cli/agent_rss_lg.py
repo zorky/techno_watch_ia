@@ -52,6 +52,8 @@ Installation et Configuration :
 
 import logging
 import argparse
+import time
+from functools import wraps
 from colorama import Fore, Style, init
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph
@@ -67,6 +69,8 @@ import os
 import json
 import opml
 
+from sentence_transformers import SentenceTransformer
+
 # =========================
 # Init couleurs
 # =========================
@@ -78,6 +82,45 @@ init(autoreset=True)
 parser = argparse.ArgumentParser(description="Agent RSS avec résumés LLM")
 parser.add_argument("--debug", action="store_true", help="Active le mode debug détaillé")
 args = parser.parse_args()
+
+# =========================
+# Configuration du modèle LLM
+# =========================
+
+load_dotenv()
+
+LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
+# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1") # si ChatOpenAI
+LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") # si ChatOllama
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
+
+llm = ChatOllama(
+    model=LLM_MODEL,
+    temperature=LLM_TEMPERATURE,
+    base_url=LLM_API,  # http://localhost:11434
+)
+
+# llm = ChatOpenAI(
+#     temperature=LLM_TEMPERATURE,
+#     model=LLM_MODEL,
+#     openai_api_base=LLM_API,
+#     openai_api_key="dummy-key-ollama",
+# )
+
+# =========================
+# Configuration du modèle d'embeddings
+# https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
+# =========================
+
+# model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')  # bon compromis pour le français/anglais
+model = SentenceTransformer('all-MiniLM-L6-v2')  # plus rapide, mais moins bon pour le français
+# model = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1')  # Optimisé pour la similarité
+
+# =========================
+# Configuration du logging
+# =========================
+
+logging.basicConfig(level=logging.INFO)
 
 # =========================
 # Formatter coloré
@@ -110,33 +153,117 @@ logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
 logger.addHandler(handler)
 logger.propagate = False
 
-# =========================
-# Configuration du modèle
-# =========================
-
-load_dotenv()
-
-LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
-# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1") # si ChatOpenAI
-LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") # si ChatOllama
-LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
-
-llm = ChatOllama(
-    model=LLM_MODEL,
-    temperature=LLM_TEMPERATURE,
-    base_url=LLM_API,  # http://localhost:11434
-)
-
-# llm = ChatOpenAI(
-#     temperature=LLM_TEMPERATURE,
-#     model=LLM_MODEL,
-#     openai_api_base=LLM_API,
-#     openai_api_key="dummy-key-ollama",
-# )
+def measure_time(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        duration = end_time - start_time
+        logger.info(f"⏱️  Temps écoulé pour {func.__name__}: {duration:.4f} secondes")
+        return result
+    return wrapper
 
 # =========================
 # Fonctions utilitaires
 # =========================
+
+# def get_or_create_index(keywords, model, index_path="keywords_index.faiss"):
+#     import os
+#     import faiss
+#     if os.path.exists(index_path):
+#             logger.info("🔍 Chargement de l'index FAISS existant...")
+#             return faiss.read_index(index_path)
+#     else:
+#         logger.info("🔧 Création d'un nouvel index FAISS...")
+#         keyword_embeddings = model.encode(keywords, convert_to_tensor=True, show_progress_bar=False)
+#         keyword_embeddings = keyword_embeddings.cpu().numpy()
+#         faiss.normalize_L2(keyword_embeddings)
+#         index = faiss.IndexFlatIP(keyword_embeddings.shape[1])
+#         index.add(keyword_embeddings)
+#         faiss.write_index(index, index_path)
+#         return index
+
+@measure_time
+def filter_articles_with_faiss(articles, keywords, threshold=0.7, index_path="keywords_index.faiss", show_progress=False):
+    """
+    Filtre les articles par similarité sémantique avec les mots-clés.
+    :param articles: Liste de dicts avec 'title' et 'summary'
+    :param keywords: Liste de mots-clés
+    :param threshold: Seuil de similarité (0 à 1)
+    :return: Articles filtrés
+    """    
+    import faiss
+    import numpy as np
+
+    logger.info(f"Filtrage sémantique avec les mots-clés {keywords}")
+    logger.info(f"Filtrage sémantique avec seuil {threshold}...")
+
+    def get_or_create_index(keywords, model, index_path):
+        if os.path.exists(index_path):
+            logger.info("🔍 Chargement de l'index FAISS existant...")
+            return faiss.read_index(index_path)
+        else:
+            logger.info("🔧 Création d'un nouvel index FAISS...")
+            keyword_embeddings = model.encode(keywords, convert_to_tensor=True, show_progress_bar=False)
+            keyword_embeddings = keyword_embeddings.cpu().numpy()
+            faiss.normalize_L2(keyword_embeddings)
+            index = faiss.IndexFlatIP(keyword_embeddings.shape[1])
+            index.add(keyword_embeddings)
+            faiss.write_index(index, index_path)
+            return index
+
+
+    # Créer un index FAISS pour le produit scalaire (similarité cosinus)
+    # index = faiss.IndexFlatIP(keyword_embeddings.shape[1])
+    index = get_or_create_index(keywords, model, index_path)
+    # index.add(keyword_embeddings)
+
+    filtered = []
+    for article in articles:
+        text = f"{article['title']} {article['summary']}".strip()
+        if not text:
+            continue  # Sauter les articles sans contenu
+
+        article_embedding = model.encode([text], convert_to_tensor=True, show_progress_bar=False)
+        article_embedding = article_embedding.cpu().numpy()
+        faiss.normalize_L2(article_embedding) # Normaliser l'embedding de l'article
+
+        # Recherche
+        similarities, indices = index.search(article_embedding, k=len(keywords))
+        max_similarity = similarities[0].max()  # La similarité est déjà entre 0 et 1
+
+        if max_similarity >= threshold:            
+            matched_keywords = [keywords[i] for i in indices[0] if similarities[0][i] >= threshold]
+            logger.info(f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']}")
+            filtered.append(article)
+
+    logger.info(f"📊 {len(filtered)}/{len(articles)} articles après filtrage sémantique (seuil={threshold})")
+    return filtered
+
+@measure_time
+def filter_articles_with_tfidf(articles, keywords, threshold=0.3):
+    """
+    Filtre les articles par similarité sémantique avec les mots-clés.
+    :param articles: Liste de dicts avec 'title' et 'summary'
+    :param keywords: Liste de mots-clés
+    :param threshold: Seuil de similarité (0 à 1)
+    :return: Articles filtrés
+    """
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+
+    texts = [f"{a['title']} {a['summary']}" for a in articles]
+    vectorizer = TfidfVectorizer()
+    tfidf_matrix = vectorizer.fit_transform(texts)
+    keyword_matrix = vectorizer.transform(keywords)
+
+    similarities = cosine_similarity(tfidf_matrix, keyword_matrix)
+    max_similarities = similarities.max(axis=1)
+
+    filtered = [article for i, article in enumerate(articles) if max_similarities[i] >= threshold]
+    return filtered
+
 def summarize_article(title, content):
     prompt = f"""Tu es un journaliste expert. Résume en français cet article en 3 phrases claires et concises.
 Titre : {title}
@@ -195,14 +322,24 @@ class RSSState(BaseModel):
 # =========================
 def fetch_node(state: RSSState):
     logger.info("📥 Récupération des articles...")
-    articles = fetch_rss_articles(state.rss_urls)
+    
+    articles = fetch_rss_articles(state.rss_urls)    
     logger.info(f"{len(articles)} articles récupérés")
+        
     return state.model_copy(update={"articles": articles})
 
 def filter_node(state: RSSState):
     logger.info("🔍 Filtrage des articles par mots-clés...")
-    filtered = filter_articles_by_keywords(state.articles, state.keywords)
-    logger.info(f"{len(filtered)} articles correspondent aux mots-clés")
+    
+    # filtered = filter_articles_by_keywords(state.articles, state.keywords)
+    # logger.info(f"{len(filtered)} articles correspondent aux mots-clés")
+
+    filtered = filter_articles_with_faiss(state.articles, state.keywords, threshold=0.5)
+    logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
+    
+    # filtered = filter_articles_with_tfidf(state.articles, state.keywords, threshold=0.3)
+    # logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
+
     return state.model_copy(update={"filtered_articles": filtered})
 
 def summarize_node(state: RSSState):
@@ -287,7 +424,7 @@ def main():
     rss_urls = _get_rss_urls()
     state = RSSState(
         rss_urls=rss_urls,
-        keywords=["intelligence artificielle", "IA générative", "cybersécurité", "alerte sécurité"]
+        keywords=["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"]
     )
     agent.invoke(state)
 
