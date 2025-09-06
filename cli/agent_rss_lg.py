@@ -31,9 +31,9 @@ Installation et Configuration :
    ```
    paquets : langgraph, langchain, langchain_core, pydantic, feedparser
 
- - un fichier .env est possible pour surcharger 3 variables : 
-   LLM_MODEL (par défaut mistal), 
-   LLM_TEMPERATURE (par défaut 0.3), 
+ - un fichier .env est possible pour surcharger 3 variables :
+   LLM_MODEL (par défaut mistal),
+   LLM_TEMPERATURE (par défaut 0.3),
    OLLAMA_BASE_URL (par défaut http://localhost:11434/v1)
    LIMIT_ARTICLES (par défaut -1 : pas de limite)
    RSS_URLS (par défaut la liste dans _get_rss_urls) : sur une seule ligne
@@ -82,7 +82,9 @@ init(autoreset=True)
 # Parsing des arguments CLI
 # =========================
 parser = argparse.ArgumentParser(description="Agent RSS avec résumés LLM")
-parser.add_argument("--debug", action="store_true", help="Active le mode debug détaillé")
+parser.add_argument(
+    "--debug", action="store_true", help="Active le mode debug détaillé"
+)
 args = parser.parse_args()
 
 # =========================
@@ -92,7 +94,7 @@ args = parser.parse_args()
 load_dotenv()
 
 LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
-LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1") # si ChatOpenAI
+LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
 # LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 MAX_DAYS = int(os.getenv("MAX_DAYS", "3"))
@@ -117,7 +119,9 @@ llm = ChatOpenAI(
 # =========================
 
 # model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')  # bon compromis pour le français/anglais
-model = SentenceTransformer('all-MiniLM-L6-v2')  # plus rapide, mais moins bon pour le français
+model = SentenceTransformer(
+    "all-MiniLM-L6-v2"
+)  # plus rapide, mais moins bon pour le français
 # model = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1')  # Optimisé pour la similarité
 
 # =========================
@@ -125,6 +129,7 @@ model = SentenceTransformer('all-MiniLM-L6-v2')  # plus rapide, mais moins bon p
 # =========================
 
 logging.basicConfig(level=logging.INFO)
+
 
 # =========================
 # Formatter coloré
@@ -135,7 +140,7 @@ class ColorFormatter(logging.Formatter):
         logging.INFO: Fore.GREEN,
         logging.WARNING: Fore.YELLOW,
         logging.ERROR: Fore.RED,
-        logging.CRITICAL: Fore.RED + Style.BRIGHT
+        logging.CRITICAL: Fore.RED + Style.BRIGHT,
     }
 
     def format(self, record):
@@ -144,9 +149,9 @@ class ColorFormatter(logging.Formatter):
         record.levelname = levelname_color
         return super().format(record)
 
+
 formatter = ColorFormatter(
-    fmt="%(asctime)s - %(levelname)s - %(message)s",
-    datefmt="%H:%M:%S"
+    fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
 )
 
 handler = logging.StreamHandler()
@@ -157,6 +162,7 @@ logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
 logger.addHandler(handler)
 logger.propagate = False
 
+
 def measure_time(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -166,21 +172,30 @@ def measure_time(func):
         duration = end_time - start_time
         logger.info(f"⏱️  Temps écoulé pour {func.__name__}: {duration:.4f} secondes")
         return result
+
     return wrapper
+
 
 # =========================
 # Fonctions utilitaires
 # =========================
 
+
 @measure_time
-def filter_articles_with_faiss(articles, keywords, threshold=0.7, index_path="keywords_index.faiss", show_progress=False):
+def filter_articles_with_faiss(
+    articles,
+    keywords,
+    threshold=0.7,
+    index_path="keywords_index.faiss",
+    show_progress=False,
+):
     """
     Filtre les articles par similarité sémantique avec les mots-clés.
     :param articles: Liste de dicts avec 'title' et 'summary'
     :param keywords: Liste de mots-clés
     :param threshold: Seuil de similarité (0 à 1)
     :return: Articles filtrés
-    """    
+    """
     import faiss
     import numpy as np
 
@@ -193,14 +208,15 @@ def filter_articles_with_faiss(articles, keywords, threshold=0.7, index_path="ke
             return faiss.read_index(index_path)
         else:
             logger.info("🔧 Création d'un nouvel index FAISS...")
-            keyword_embeddings = model.encode(keywords, convert_to_tensor=True, show_progress_bar=False)
+            keyword_embeddings = model.encode(
+                keywords, convert_to_tensor=True, show_progress_bar=False
+            )
             keyword_embeddings = keyword_embeddings.cpu().numpy()
             faiss.normalize_L2(keyword_embeddings)
             index = faiss.IndexFlatIP(keyword_embeddings.shape[1])
             index.add(keyword_embeddings)
             faiss.write_index(index, index_path)
             return index
-
 
     # Créer un index FAISS pour le produit scalaire (similarité cosinus)
     # index = faiss.IndexFlatIP(keyword_embeddings.shape[1])
@@ -213,21 +229,30 @@ def filter_articles_with_faiss(articles, keywords, threshold=0.7, index_path="ke
         if not text:
             continue  # Sauter les articles sans contenu
 
-        article_embedding = model.encode([text], convert_to_tensor=True, show_progress_bar=False)
+        article_embedding = model.encode(
+            [text], convert_to_tensor=True, show_progress_bar=False
+        )
         article_embedding = article_embedding.cpu().numpy()
-        faiss.normalize_L2(article_embedding) # Normaliser l'embedding de l'article
+        faiss.normalize_L2(article_embedding)  # Normaliser l'embedding de l'article
 
         # Recherche
         similarities, indices = index.search(article_embedding, k=len(keywords))
         max_similarity = similarities[0].max()  # La similarité est déjà entre 0 et 1
 
-        if max_similarity >= threshold:            
-            matched_keywords = [keywords[i] for i in indices[0] if similarities[0][i] >= threshold]
-            logger.info(f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']}")
+        if max_similarity >= threshold:
+            matched_keywords = [
+                keywords[i] for i in indices[0] if similarities[0][i] >= threshold
+            ]
+            logger.info(
+                f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']}"
+            )
             filtered.append(article)
 
-    logger.info(f"📊 {len(filtered)}/{len(articles)} articles après filtrage sémantique (seuil={threshold})")
+    logger.info(
+        f"📊 {len(filtered)}/{len(articles)} articles après filtrage sémantique (seuil={threshold})"
+    )
     return filtered
+
 
 @measure_time
 def filter_articles_with_tfidf(articles, keywords, threshold=0.3):
@@ -249,8 +274,13 @@ def filter_articles_with_tfidf(articles, keywords, threshold=0.3):
     similarities = cosine_similarity(tfidf_matrix, keyword_matrix)
     max_similarities = similarities.max(axis=1)
 
-    filtered = [article for i, article in enumerate(articles) if max_similarities[i] >= threshold]
+    filtered = [
+        article
+        for i, article in enumerate(articles)
+        if max_similarities[i] >= threshold
+    ]
     return filtered
+
 
 def summarize_article(title, content):
     prompt = f"""Tu es un journaliste expert. Résume en français cet article en 3 phrases claires et concises.
@@ -258,11 +288,22 @@ Titre : {title}
 Contenu : {content}
 """
     if args.debug:
-        logger.debug(Fore.MAGENTA + "--- PROMPT ENVOYÉ AU LLM ---\n" + prompt + "\n---------------------------")
+        logger.debug(
+            Fore.MAGENTA
+            + "--- PROMPT ENVOYÉ AU LLM ---\n"
+            + prompt
+            + "\n---------------------------"
+        )
     result = llm.invoke(prompt)
     if args.debug:
-        logger.debug(Fore.MAGENTA + "--- RÉPONSE BRUTE DU LLM ---\n" + str(result) + "\n---------------------------")
+        logger.debug(
+            Fore.MAGENTA
+            + "--- RÉPONSE BRUTE DU LLM ---\n"
+            + str(result)
+            + "\n---------------------------"
+        )
     return result.content.strip() if hasattr(result, "content") else str(result).strip()
+
 
 def fetch_rss_articles(rss_urls, max_age_days=10):
     """
@@ -278,15 +319,17 @@ def fetch_rss_articles(rss_urls, max_age_days=10):
 
         for entry in feed.entries:
             published_time = None
-            if hasattr(entry, 'published_parsed'):
+            if hasattr(entry, "published_parsed"):
                 published_time = datetime(*entry.published_parsed[:6])
-            # logger.info(f"Article: {entry.title} (publié le {published_time}) : {published_time >= cutoff_date if published_time else 'date inconnue'}")            
+            # logger.info(f"Article: {entry.title} (publié le {published_time}) : {published_time >= cutoff_date if published_time else 'date inconnue'}")
             if published_time and published_time >= cutoff_date:
-                articles.append({
-                    "title": entry.title,
-                    "summary": entry.summary,
-                    "link": entry.link,
-                })
+                articles.append(
+                    {
+                        "title": entry.title,
+                        "summary": entry.summary,
+                        "link": entry.link,
+                    }
+                )
                 recent_in_feed += 1
 
         logger.info(f"{len(feed.entries)} articles trouvés, {recent_in_feed} récents !")
@@ -294,13 +337,19 @@ def fetch_rss_articles(rss_urls, max_age_days=10):
     logger.debug(f"{len(articles)} articles récents récupérés")
     return articles
 
+
 def filter_articles_by_keywords(articles, keywords):
     filtered = []
     for article in articles:
-        if any(k.lower() in article["title"].lower() or k.lower() in article["summary"].lower() for k in keywords):
+        if any(
+            k.lower() in article["title"].lower()
+            or k.lower() in article["summary"].lower()
+            for k in keywords
+        ):
             filtered.append(article)
     logger.debug(f"{len(filtered)} articles après filtrage")
     return filtered
+
 
 # =========================
 # Définition de l’état
@@ -312,30 +361,33 @@ class RSSState(BaseModel):
     filtered_articles: Optional[list[dict]] = None
     summaries: Optional[list[dict]] = None
 
+
 # =========================
 # Nœuds du graphe
 # =========================
 def fetch_node(state: RSSState):
     logger.info("📥 Récupération des articles...")
-    
-    articles = fetch_rss_articles(state.rss_urls, MAX_DAYS)    
+
+    articles = fetch_rss_articles(state.rss_urls, MAX_DAYS)
     logger.info(f"{len(articles)} articles récupérés")
-        
+
     return state.model_copy(update={"articles": articles})
+
 
 def filter_node(state: RSSState):
     logger.info("🔍 Filtrage des articles par mots-clés...")
-    
+
     # filtered = filter_articles_by_keywords(state.articles, state.keywords)
     # logger.info(f"{len(filtered)} articles correspondent aux mots-clés")
 
     filtered = filter_articles_with_faiss(state.articles, state.keywords, threshold=0.2)
     logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
-    
+
     # filtered = filter_articles_with_tfidf(state.articles, state.keywords, threshold=0.3)
     # logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
 
     return state.model_copy(update={"filtered_articles": filtered})
+
 
 def summarize_node(state: RSSState):
     logger.info("✏️  Résumé des articles filtrés...")
@@ -350,20 +402,29 @@ def summarize_node(state: RSSState):
     for i, article in enumerate(articles, start=1):
         logger.info(Fore.YELLOW + f"Résumé {i}/{len(articles)} : {article['title']}")
         summary_text = summarize_article(article["title"], article["summary"])
-        summaries.append({
-            "title": article["title"],
-            "summary": summary_text,
-            "link": article["link"]
-        })
+        summaries.append(
+            {
+                "title": article["title"],
+                "summary": summary_text,
+                "link": article["link"],
+            }
+        )
     return state.model_copy(update={"summaries": summaries})
+
 
 def output_node(state: RSSState):
     logger.info("📄 Affichage des résultats finaux")
     for item in state.summaries:
-        print(Fore.CYAN + f"\n📰 {item['title']}\n" +
-              Fore.GREEN + f"📝 {item['summary']}\n" +
-              Fore.BLUE + f"🔗 {item['link']}")
+        print(
+            Fore.CYAN
+            + f"\n📰 {item['title']}\n"
+            + Fore.GREEN
+            + f"📝 {item['summary']}\n"
+            + Fore.BLUE
+            + f"🔗 {item['link']}"
+        )
     return state
+
 
 # =========================
 # Construction du graphe : noeuds (nodes) et transitions (edges)
@@ -383,27 +444,39 @@ def make_graph():
 
     return graph.compile()
 
+
 def get_rss_urls():
     """
     Obtient la liste des URL RSS à traiter à partir des variables d'environnement.
     Le .env ne contient que des types string et au format JSON
     """
-    rss_list_opml = parse_opml_to_rss_list(OPML_FILE)    
-    return [feed.lien_rss for feed in rss_list_opml]    
+    rss_list_opml = parse_opml_to_rss_list(OPML_FILE)
+    return [feed.lien_rss for feed in rss_list_opml]
+
 
 # =========================
 # Main
 # =========================
 def main():
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")
-    logger.info(Fore.YELLOW + Style.BRIGHT + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE}")
+    logger.info(
+        Fore.YELLOW
+        + Style.BRIGHT
+        + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE}"
+    )
     rss_urls = get_rss_urls()
-    agent = make_graph()    
+    agent = make_graph()
     state = RSSState(
         rss_urls=rss_urls,
-        keywords=["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"]
+        keywords=[
+            "intelligence artificielle",
+            "IA",
+            "cybersécurité",
+            "alerte sécurité",
+        ],
     )
     agent.invoke(state)
+
 
 if __name__ == "__main__":
     main()
