@@ -96,6 +96,7 @@ LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1") # si ChatOpe
 # LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 MAX_DAYS = int(os.getenv("MAX_DAYS", "3"))
+OPML_FILE = os.getenv("OPML_FILE", "my.opml")
 
 # llm = ChatOllama(
 #     model=LLM_MODEL,
@@ -387,7 +388,7 @@ def get_rss_urls():
     Obtient la liste des URL RSS à traiter à partir des variables d'environnement.
     Le .env ne contient que des types string et au format JSON
     """
-    rss_list_opml = parse_opml_to_rss_list('my.opml')    
+    rss_list_opml = parse_opml_to_rss_list(OPML_FILE)    
     return [feed.lien_rss for feed in rss_list_opml]    
 
 # =========================

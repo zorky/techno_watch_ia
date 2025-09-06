@@ -1,5 +1,11 @@
 from typing import NamedTuple
+import logging
 import xml.etree.ElementTree as ET
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.propagate = False
 
 class RSSFeed(NamedTuple):
     titre: str
@@ -18,20 +24,23 @@ def parse_opml_to_rss_list(opml_file: str) -> list[RSSFeed]:
         "https://www.ajeetraina.com/rss/",
         "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml"
     ]
-    tree = ET.parse(opml_file)
-    root = tree.getroot()
+    try:
+        tree = ET.parse(opml_file)
+        root = tree.getroot()
 
-    rss_feeds = []
-    for outline in root.findall(".//outline[@type='rss']"):
-        # Gestion des valeurs manquantes
-        title = outline.get('title') or outline.get('text') or "Sans titre"
-        xml_url = outline.get('xmlUrl')
-        html_url = outline.get('htmlUrl') or "Aucun lien web"
+        rss_feeds = []
+        for outline in root.findall(".//outline[@type='rss']"):
+            # Gestion des valeurs manquantes
+            title = outline.get('title') or outline.get('text') or "Sans titre"
+            xml_url = outline.get('xmlUrl')
+            html_url = outline.get('htmlUrl') or "Aucun lien web"
 
-        rss_feeds.append(
-            RSSFeed(titre=title, lien_rss=xml_url, lien_web=html_url)
-        )
-
+            rss_feeds.append(
+                RSSFeed(titre=title, lien_rss=xml_url, lien_web=html_url)
+            )
+    except (ET.ParseError, FileNotFoundError) as e:
+        logger.error(f"Erreur lors de la lecture du fichier OPML: {e} - bascule vers les flux par défaut.\n")
+        rss_feeds = [RSSFeed(titre="Flux par défaut", lien_rss=url, lien_web="Aucun lien web") for url in default_list]
     return rss_feeds
 
 def filter_rss_by_keywords(rss_list: list[RSSFeed], keywords: list[str]) -> list[RSSFeed]:
@@ -48,7 +57,7 @@ def filter_rss_by_keywords(rss_list: list[RSSFeed], keywords: list[str]) -> list
 
 if __name__ == "__main__":
     keywords = ["IA", "cybersécurité", "Django", "intelligence artificielle"]
-    rss_list = parse_opml_to_rss_list('my-err.opml')
+    rss_list = parse_opml_to_rss_list('my.opml')
     filtered_rss = filter_rss_by_keywords(rss_list, keywords)
 
     for feed in filtered_rss:
