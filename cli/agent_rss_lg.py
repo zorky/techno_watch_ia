@@ -60,17 +60,18 @@ from dotenv import load_dotenv
 from langgraph.graph import StateGraph
 from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Optional
 
-# from langchain_openai import ChatOpenAI
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
+# from langchain_ollama import ChatOllama
 
 import feedparser
 import os
 import json
-import opml
 
 from sentence_transformers import SentenceTransformer
+
+from read_opml import RSSFeed, parse_opml_to_rss_list
 
 # =========================
 # Init couleurs
@@ -91,22 +92,23 @@ args = parser.parse_args()
 load_dotenv()
 
 LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
-# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1") # si ChatOpenAI
-LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") # si ChatOllama
+LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1") # si ChatOpenAI
+# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
+MAX_DAYS = int(os.getenv("MAX_DAYS", "3"))
 
-llm = ChatOllama(
-    model=LLM_MODEL,
-    temperature=LLM_TEMPERATURE,
-    base_url=LLM_API,  # http://localhost:11434
-)
-
-# llm = ChatOpenAI(
-#     temperature=LLM_TEMPERATURE,
+# llm = ChatOllama(
 #     model=LLM_MODEL,
-#     openai_api_base=LLM_API,
-#     openai_api_key="dummy-key-ollama",
+#     temperature=LLM_TEMPERATURE,
+#     base_url=LLM_API,  # http://localhost:11434
 # )
+
+llm = ChatOpenAI(
+    temperature=LLM_TEMPERATURE,
+    model=LLM_MODEL,
+    openai_api_base=LLM_API,
+    openai_api_key="dummy-key-ollama",
+)
 
 # =========================
 # Configuration du modèle d'embeddings
@@ -261,7 +263,7 @@ Contenu : {content}
         logger.debug(Fore.MAGENTA + "--- RÉPONSE BRUTE DU LLM ---\n" + str(result) + "\n---------------------------")
     return result.content.strip() if hasattr(result, "content") else str(result).strip()
 
-def fetch_rss_articles(rss_urls, max_age_days=3):
+def fetch_rss_articles(rss_urls, max_age_days=10):
     """
     Récupère les articles des flux RSS, en ne gardant que ceux publiés dans les `max_age_days` derniers jours.
     """
@@ -299,23 +301,15 @@ def filter_articles_by_keywords(articles, keywords):
     logger.debug(f"{len(filtered)} articles après filtrage")
     return filtered
 
-def read_opml():
-    o = opml.parse('my.opml')
-    for x in o:
-        logger.info(x.text)        
-        for y in x:
-            if y.type == "rss":            
-                logger.info(y.xmlUrl)
-
 # =========================
 # Définition de l’état
 # =========================
 class RSSState(BaseModel):
-    rss_urls: List[str]
-    keywords: List[str]
-    articles: Optional[List[dict]] = None
-    filtered_articles: Optional[List[dict]] = None
-    summaries: Optional[List[dict]] = None    
+    rss_urls: list[str]
+    keywords: list[str]
+    articles: Optional[list[dict]] = None
+    filtered_articles: Optional[list[dict]] = None
+    summaries: Optional[list[dict]] = None
 
 # =========================
 # Nœuds du graphe
@@ -323,7 +317,7 @@ class RSSState(BaseModel):
 def fetch_node(state: RSSState):
     logger.info("📥 Récupération des articles...")
     
-    articles = fetch_rss_articles(state.rss_urls)    
+    articles = fetch_rss_articles(state.rss_urls, MAX_DAYS)    
     logger.info(f"{len(articles)} articles récupérés")
         
     return state.model_copy(update={"articles": articles})
@@ -388,31 +382,13 @@ def make_graph():
 
     return graph.compile()
 
-def _get_rss_urls():
+def get_rss_urls():
     """
     Obtient la liste des URL RSS à traiter à partir des variables d'environnement.
     Le .env ne contient que des types string et au format JSON
     """
-    default_list = [
-        "https://cert.ssi.gouv.fr/alerte/feed/",
-        "https://www.djangoproject.com/rss/community/",
-        "https://cosmo-games.com/sujet/ia/feed/",
-        "https://belowthemalt.com/feed/",
-        "https://www.ajeetraina.com/rss/",
-        "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml"
-    ]
-    # ["https://cert.ssi.gouv.fr/feed/", "https://feeds.feedburner.com/TheHackersNews", "https://blog.cryptographyengineering.com/feed", "https://cybersecuritynews.com/feed/", "https://securityboulevard.com/feed/"]
-    default_json = json.dumps(default_list)
-
-    rss_urls_str = os.getenv("RSS_URLS", default_json)
-    try:
-        rss_urls = json.loads(rss_urls_str)
-        if not isinstance(rss_urls, list):
-            raise ValueError("RSS_URLS n'est pas une liste JSON valide")
-    except (json.JSONDecodeError, ValueError):
-        rss_urls = default_list
-
-    return rss_urls
+    rss_list_opml = parse_opml_to_rss_list('my.opml')    
+    return [feed.lien_rss for feed in rss_list_opml]    
 
 # =========================
 # Main
@@ -420,8 +396,8 @@ def _get_rss_urls():
 def main():
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")
     logger.info(Fore.YELLOW + Style.BRIGHT + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE}")
-    agent = make_graph()
-    rss_urls = _get_rss_urls()
+    rss_urls = get_rss_urls()
+    agent = make_graph()    
     state = RSSState(
         rss_urls=rss_urls,
         keywords=["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"]
