@@ -67,7 +67,6 @@ from langchain_openai import ChatOpenAI
 
 import feedparser
 import os
-import json
 
 from sentence_transformers import SentenceTransformer
 
@@ -97,6 +96,9 @@ LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
 LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
 # LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
+
+FILTER_KEYWORDS = os.getenv("FILTER_KEYWORDS", "").split(",")
+THRESHOLD_SEMANTIC_SEARCH = float(os.getenv("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
 MAX_DAYS = int(os.getenv("MAX_DAYS", "3"))
 OPML_FILE = os.getenv("OPML_FILE", "my.opml")
 
@@ -209,7 +211,7 @@ def filter_articles_with_faiss(
         else:
             logger.info("🔧 Création d'un nouvel index FAISS...")
             keyword_embeddings = model.encode(
-                keywords, convert_to_tensor=True, show_progress_bar=False
+                keywords, convert_to_tensor=True, show_progress_bar=show_progress
             )
             keyword_embeddings = keyword_embeddings.cpu().numpy()
             faiss.normalize_L2(keyword_embeddings)
@@ -218,10 +220,8 @@ def filter_articles_with_faiss(
             faiss.write_index(index, index_path)
             return index
 
-    # Créer un index FAISS pour le produit scalaire (similarité cosinus)
-    # index = faiss.IndexFlatIP(keyword_embeddings.shape[1])
-    index = get_or_create_index(keywords, model, index_path)
-    # index.add(keyword_embeddings)
+    # Créer un index FAISS pour le produit scalaire (similarité cosinus)    
+    index = get_or_create_index(keywords, model, index_path)    
 
     filtered = []
     for article in articles:
@@ -304,35 +304,59 @@ Contenu : {content}
         )
     return result.content.strip() if hasattr(result, "content") else str(result).strip()
 
+def article_in_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
+    """
+    Gère la syndication d'un article.
+    """
+    # Récupération de la date de publication (priorité à published, sinon updated)
+    published_time = None
+    if hasattr(entry, "published_parsed"):
+        published_time = datetime(*entry.published_parsed[:6])
+    elif hasattr(entry, "updated_parsed"):
+        published_time = datetime(*entry.updated_parsed[:6])
 
+    # Vérification de la date
+    is_recent = published_time and (published_time >= cutoff_date)
+    logger.debug(
+        f"Article: {getattr(entry, 'title', 'Sans titre')} "
+        f"(publié le {published_time}) : {'récent' if is_recent else 'trop ancien' if published_time else 'date inconnue'}"
+    )
+
+    if is_recent:
+        # Normalisation des champs (RSS/Atom)
+        title = getattr(entry, 'title', 'Sans titre')
+        summary = getattr(entry, 'summary', getattr(entry, 'content', [{}])[0].get('value', 'Pas de résumé'))
+        link = getattr(entry, 'link', '#')
+        if isinstance(link, list):  # Cas Atom où link est un objet
+            link = link[0].href if link else '#'
+
+        articles.append({
+            "title": title,
+            "summary": summary,
+            "link": link,
+            "published": published_time.isoformat() if published_time else None,
+        })
+        recent_in_feed += 1
+    return recent_in_feed
+
+@measure_time
 def fetch_rss_articles(rss_urls, max_age_days=10):
     """
-    Récupère les articles des flux RSS, en ne gardant que ceux publiés dans les `max_age_days` derniers jours.
+    Récupère les articles des flux RSS/Atom, en ne gardant que ceux publiés dans les `max_age_days` derniers jours.
     """
     articles = []
     cutoff_date = datetime.now() - timedelta(days=max_age_days)
     logger.info(f"seuil date : {cutoff_date}")
+
     for url in rss_urls:
         logger.info(Fore.BLUE + f"Lecture du flux RSS : {url}")
         feed = feedparser.parse(url)
         recent_in_feed = 0
 
-        for entry in feed.entries:
-            published_time = None
-            if hasattr(entry, "published_parsed"):
-                published_time = datetime(*entry.published_parsed[:6])
-            # logger.info(f"Article: {entry.title} (publié le {published_time}) : {published_time >= cutoff_date if published_time else 'date inconnue'}")
-            if published_time and published_time >= cutoff_date:
-                articles.append(
-                    {
-                        "title": entry.title,
-                        "summary": entry.summary,
-                        "link": entry.link,
-                    }
-                )
-                recent_in_feed += 1
+        for entry in feed.entries:  
+            recent_in_feed = article_in_entry_syndication(entry, articles, cutoff_date, recent_in_feed)                                  
 
-        logger.info(f"{len(feed.entries)} articles trouvés, {recent_in_feed} récents !")
+        logger.info(f"{len(feed.entries)} articles trouvés dans ce flux, {recent_in_feed} récents !")
 
     logger.debug(f"{len(articles)} articles récents récupérés")
     return articles
@@ -380,7 +404,7 @@ def filter_node(state: RSSState):
     # filtered = filter_articles_by_keywords(state.articles, state.keywords)
     # logger.info(f"{len(filtered)} articles correspondent aux mots-clés")
 
-    filtered = filter_articles_with_faiss(state.articles, state.keywords, threshold=0.2)
+    filtered = filter_articles_with_faiss(state.articles, state.keywords, threshold=THRESHOLD_SEMANTIC_SEARCH)
     logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
 
     # filtered = filter_articles_with_tfidf(state.articles, state.keywords, threshold=0.3)
@@ -468,12 +492,7 @@ def main():
     agent = make_graph()
     state = RSSState(
         rss_urls=rss_urls,
-        keywords=[
-            "intelligence artificielle",
-            "IA",
-            "cybersécurité",
-            "alerte sécurité",
-        ],
+        keywords=FILTER_KEYWORDS if FILTER_KEYWORDS != [""] else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],
     )
     agent.invoke(state)
 
