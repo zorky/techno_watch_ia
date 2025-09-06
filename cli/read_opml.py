@@ -19,6 +19,7 @@ def parse_opml_to_rss_list(opml_file: str) -> list[RSSFeed]:
     Parse un fichier OPML et retourne une liste de RSSFeed (NamedTuple).
     """
     default_list = [
+        "http://dotmobo.github.io/feeds/all.atom.xml",
         "https://cert.ssi.gouv.fr/alerte/feed/",
         "https://www.djangoproject.com/rss/community/",
         "https://cosmo-games.com/sujet/ia/feed/",

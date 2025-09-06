@@ -70,7 +70,10 @@ import os
 
 from sentence_transformers import SentenceTransformer
 
-from read_opml import RSSFeed, parse_opml_to_rss_list
+# from utils import measure_time
+from read_opml import parse_opml_to_rss_list
+
+from bs4 import BeautifulSoup
 
 # =========================
 # Init couleurs
@@ -204,6 +207,7 @@ def filter_articles_with_faiss(
     logger.info(f"Filtrage sémantique avec les mots-clés {keywords}")
     logger.info(f"Filtrage sémantique avec seuil {threshold}...")
 
+    @measure_time
     def get_or_create_index(keywords, model, index_path):
         if os.path.exists(index_path):
             logger.info("🔍 Chargement de l'index FAISS existant...")
@@ -244,7 +248,7 @@ def filter_articles_with_faiss(
                 keywords[i] for i in indices[0] if similarities[0][i] >= threshold
             ]
             logger.info(
-                f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']}"
+                f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']} {article['link']}"
             )
             filtered.append(article)
 
@@ -282,11 +286,67 @@ def filter_articles_with_tfidf(articles, keywords, threshold=0.3):
     return filtered
 
 
-def summarize_article(title, content):
-    prompt = f"""Tu es un journaliste expert. Résume en français cet article en 3 phrases claires et concises.
+def set_prompt(theme, title, content):
+    # minimaliste et original
+    #     prompt = f"""Tu es un journaliste expert. Résume en français cet article en 3 phrases claires et concises.
+    # Titre : {title}
+    # Contenu : {content}
+    # """
+    # prompt technique à points
+    #     prompt = f"""Tu es un expert en {theme}. Résume cet article en 3 phrases **techniquement précises**, en français, en extraant :
+    # 1. L'information principale (ex: une découverte, une vulnérabilité, une sortie logicielle).
+    # 2. Les détails clés (ex: versions concernées, acteurs impliqués, dates).
+    # 3. L'impact ou la nouveauté (ex: "Cette faille affecte X utilisateurs", "Ce framework simplifie Y").
+    # - Si le contenu est trop vague, réponds : "Résumé impossible : article incomplet ou non informatif.
+    # - Si le contenu est en anglais, traduis-le d'abord en français avant de résumer.
+
+    # **Titre :** {title}
+    # **Contenu :** {content}
+
+    # **Résumé :**"""
+    # few-shot
+    #     prompt = f"""Exemples de résumés attendus :
+    # ---
+    # Titre : "Découverte d'une faille critique dans OpenSSL 3.2"
+    # Contenu : "La faille CVE-2024-1234 permet une exécution de code à distance..."
+    # Résumé : OpenSSL 3.2 contient une faille critique (CVE-2024-1234) permettant une exécution de code à distance. Les versions 3.2.0 à 3.2.3 sont concernées. Les utilisateurs doivent mettre à jour immédiatement.
+    # ---
+
+    # Titre : "Meta présente Llama 3.1 avec 400M de paramètres"
+    # Contenu : "Llama 3.1 introduit une architecture optimisée pour les devices mobiles..."
+    # Résumé : Meta a lancé Llama 3.1, un modèle léger (400M de paramètres) optimisé pour les mobiles. Il surpasse les précédents modèles sur les benchmarks de latence. Disponible dès aujourd'hui en open source.
+    # ---
+
+    # **À toi :** Résume l'article suivant en suivant le même format.
+
+    # **Titre :** {title}
+    # **Contenu :** {content}
+
+    # **Résumé :**"""
+    prompt = f"""Tu es un expert en {theme}. Résume **uniquement** l'article ci-dessous en **3 phrases maximales**, en français, avec :
+1. L'information principale (qui ? quoi ?).
+2. Les détails clés (chiffres, noms, dates).
+3. L'impact ou la solution proposée.
+
+**Exemple :**
+Titre : "Sortie de Python 3.12 avec un compilateur JIT"
+Contenu : "Python 3.12 intègre un compilateur JIT expérimental..."
+Résumé : Python 3.12 introduit un compilateur JIT expérimental pour accélérer l'exécution. Les tests montrent un gain de 10 à 30% sur certains workloads. Disponible en version bêta dès septembre 2025.
+
+**À résumer :**
 Titre : {title}
 Contenu : {content}
-"""
+
+Résumé :"""
+
+    return prompt
+
+
+def summarize_article(title, content):
+    prompt = set_prompt(
+        "IA, technologie, ingénieurie logicielle et cybersécurité", title, content
+    )
+
     if args.debug:
         logger.debug(
             Fore.MAGENTA
@@ -294,7 +354,9 @@ Contenu : {content}
             + prompt
             + "\n---------------------------"
         )
-    result = llm.invoke(prompt)
+    # Appel au LLM
+    result = llm.invoke(prompt, temperature=LLM_TEMPERATURE, top_p=0.9)
+
     if args.debug:
         logger.debug(
             Fore.MAGENTA
@@ -302,12 +364,28 @@ Contenu : {content}
             + str(result)
             + "\n---------------------------"
         )
-    return result.content.strip() if hasattr(result, "content") else str(result).strip()
+    summary = result.content.strip().strip('"').strip()
+    # return result.content.strip() if hasattr(result, "content") else str(result).strip()    
+    # Nettoyage des introductions génériques
+    for prefix in ["Voici un résumé :", "Résumé :", "L'article explique que"]:
+        if summary.startswith(prefix):
+            summary = summary[len(prefix):].strip()
+    return summary
 
 
-def article_in_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
+def strip_html(text: str) -> str:
+    return BeautifulSoup(text, "html.parser").get_text()
+
+
+def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
     """
-    Gère la syndication d'un article.
+    A partir du contenu d'une entrée entry, ajoute un article récent à la liste des articles à traiter.
+
+    Args:
+        entry: Un article du flux RSS/Atom.
+        articles: La liste des articles à traiter.
+        cutoff_date: La date limite pour qu'un article soit considéré comme récent.
+        recent_in_feed: Le compteur d'articles récents dans le flux actuel.
     """
     # Récupération de la date de publication (priorité à published, sinon updated)
     published_time = None
@@ -330,11 +408,13 @@ def article_in_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
             entry,
             "summary",
             getattr(entry, "content", [{}])[0].get("value", "Pas de résumé"),
-        )
+        )  # revoir pour Atom ou RSS le contenu : summary ou description ou ?
+        summary = strip_html(summary)  # Nettoyage du HTML
+        logger.info(f"Résumé brut (après nettoyage) : {summary}")
         link = getattr(entry, "link", "#")
         if isinstance(link, list):  # Cas Atom où link est un objet
             link = link[0].href if link else "#"
-
+        logger.info(Fore.GREEN + f"🆕 Article récent : {title} ({link})")
         articles.append(
             {
                 "title": title,
@@ -348,9 +428,13 @@ def article_in_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
 
 
 @measure_time
-def fetch_rss_articles(rss_urls, max_age_days=10):
+def fetch_rss_articles(rss_urls: list[str], max_age_days: int = 10):
     """
     Récupère les articles des flux RSS/Atom, en ne gardant que ceux publiés dans les `max_age_days` derniers jours.
+
+    Args:
+        rss_urls: Liste des URL des flux RSS/Atom.
+        max_age_days: Nombre de jours pour considérer un article comme récent.
     """
     articles = []
     cutoff_date = datetime.now() - timedelta(days=max_age_days)
@@ -358,11 +442,11 @@ def fetch_rss_articles(rss_urls, max_age_days=10):
 
     for url in rss_urls:
         logger.info(Fore.BLUE + f"Lecture du flux RSS : {url}")
-        feed = feedparser.parse(url)
+        feed = feedparser.parse(url)  # voir Etag et modified pour ne pas tout recharger
         recent_in_feed = 0
 
         for entry in feed.entries:
-            recent_in_feed = article_in_entry_syndication(
+            recent_in_feed = add_article_with_entry_syndication(
                 entry, articles, cutoff_date, recent_in_feed
             )
 
@@ -388,7 +472,7 @@ def filter_articles_by_keywords(articles, keywords):
 
 
 # =========================
-# Définition de l’état
+# Définition de l’état langgraph
 # =========================
 class RSSState(BaseModel):
     rss_urls: list[str]
