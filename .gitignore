@@ -1,6 +1,8 @@
 *.opml
-my.opml 
-keywords_index.faiss
+*.faiss
+
+# my.opml 
+# keywords_index.faiss
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
