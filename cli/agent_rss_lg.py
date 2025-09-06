@@ -220,8 +220,8 @@ def filter_articles_with_faiss(
             faiss.write_index(index, index_path)
             return index
 
-    # Créer un index FAISS pour le produit scalaire (similarité cosinus)    
-    index = get_or_create_index(keywords, model, index_path)    
+    # Créer un index FAISS pour le produit scalaire (similarité cosinus)
+    index = get_or_create_index(keywords, model, index_path)
 
     filtered = []
     for article in articles:
@@ -304,6 +304,7 @@ Contenu : {content}
         )
     return result.content.strip() if hasattr(result, "content") else str(result).strip()
 
+
 def article_in_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
     """
     Gère la syndication d'un article.
@@ -324,20 +325,27 @@ def article_in_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
 
     if is_recent:
         # Normalisation des champs (RSS/Atom)
-        title = getattr(entry, 'title', 'Sans titre')
-        summary = getattr(entry, 'summary', getattr(entry, 'content', [{}])[0].get('value', 'Pas de résumé'))
-        link = getattr(entry, 'link', '#')
+        title = getattr(entry, "title", "Sans titre")
+        summary = getattr(
+            entry,
+            "summary",
+            getattr(entry, "content", [{}])[0].get("value", "Pas de résumé"),
+        )
+        link = getattr(entry, "link", "#")
         if isinstance(link, list):  # Cas Atom où link est un objet
-            link = link[0].href if link else '#'
+            link = link[0].href if link else "#"
 
-        articles.append({
-            "title": title,
-            "summary": summary,
-            "link": link,
-            "published": published_time.isoformat() if published_time else None,
-        })
+        articles.append(
+            {
+                "title": title,
+                "summary": summary,
+                "link": link,
+                "published": published_time.isoformat() if published_time else None,
+            }
+        )
         recent_in_feed += 1
     return recent_in_feed
+
 
 @measure_time
 def fetch_rss_articles(rss_urls, max_age_days=10):
@@ -353,10 +361,14 @@ def fetch_rss_articles(rss_urls, max_age_days=10):
         feed = feedparser.parse(url)
         recent_in_feed = 0
 
-        for entry in feed.entries:  
-            recent_in_feed = article_in_entry_syndication(entry, articles, cutoff_date, recent_in_feed)                                  
+        for entry in feed.entries:
+            recent_in_feed = article_in_entry_syndication(
+                entry, articles, cutoff_date, recent_in_feed
+            )
 
-        logger.info(f"{len(feed.entries)} articles trouvés dans ce flux, {recent_in_feed} récents !")
+        logger.info(
+            f"{len(feed.entries)} articles trouvés dans ce flux, {recent_in_feed} récents !"
+        )
 
     logger.debug(f"{len(articles)} articles récents récupérés")
     return articles
@@ -404,7 +416,9 @@ def filter_node(state: RSSState):
     # filtered = filter_articles_by_keywords(state.articles, state.keywords)
     # logger.info(f"{len(filtered)} articles correspondent aux mots-clés")
 
-    filtered = filter_articles_with_faiss(state.articles, state.keywords, threshold=THRESHOLD_SEMANTIC_SEARCH)
+    filtered = filter_articles_with_faiss(
+        state.articles, state.keywords, threshold=THRESHOLD_SEMANTIC_SEARCH
+    )
     logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
 
     # filtered = filter_articles_with_tfidf(state.articles, state.keywords, threshold=0.3)
@@ -492,7 +506,9 @@ def main():
     agent = make_graph()
     state = RSSState(
         rss_urls=rss_urls,
-        keywords=FILTER_KEYWORDS if FILTER_KEYWORDS != [""] else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],
+        keywords=FILTER_KEYWORDS
+        if FILTER_KEYWORDS != [""]
+        else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],
     )
     agent.invoke(state)
 
