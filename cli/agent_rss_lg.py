@@ -430,14 +430,19 @@ def fetch_rss_articles(rss_urls: list[str], max_age_days: int = 10):
         rss_urls: Liste des URL des flux RSS/Atom.
         max_age_days: Nombre de jours pour considérer un article comme récent.
     """
+    AGENT="ReaderRSS/1.0"
+    RESOLVE_RELATIVE_URIS=False
+    SANITIZE_HTML=True
     articles = []
     cutoff_date = datetime.now() - timedelta(days=max_age_days)
     logger.info(f"seuil date : {cutoff_date}")
 
     for url in rss_urls:
-        logger.info(Fore.BLUE + f"Lecture du flux RSS : {url}")
-        feed = feedparser.parse(url)  # voir Etag et modified pour ne pas tout recharger
-        # feed = feedparser.parse(url, resolve_relative_uris=False, sanitize_html=False)  # voir Etag et modified pour ne pas tout recharger        
+        logger.info(Fore.BLUE + f"Lecture du flux RSS : {url}")        
+        feed = feedparser.parse(url, 
+                                resolve_relative_uris=RESOLVE_RELATIVE_URIS, 
+                                sanitize_html=SANITIZE_HTML,
+                                agent=AGENT)  # voir Etag et modified pour ne pas tout recharger
         recent_in_feed = 0
 
         for entry in feed.entries:
@@ -508,7 +513,7 @@ def filter_node(state: RSSState):
 
 def summarize_node(state: RSSState):
     logger.info("✏️  Résumé des articles filtrés...")
-    LIMIT_ARTICLES = int(os.getenv("LIMIT_ARTICLES", -1))
+    LIMIT_ARTICLES = int(os.getenv("LIMIT_INFERENCE_ARTICLES", -1))
     if LIMIT_ARTICLES > 0:
         logger.info(f"Limite de résumé à {LIMIT_ARTICLES} articles")
         articles = state.filtered_articles[:LIMIT_ARTICLES]
