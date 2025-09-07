@@ -62,14 +62,15 @@ from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel
 from typing import Optional
 
-# from langchain_openai import ChatOpenAI
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
+# from langchain_ollama import ChatOllama
 
 import feedparser
 import os
 
 from sentence_transformers import SentenceTransformer
 
+# from core.utils import measure_time
 # from utils import measure_time
 from read_opml import parse_opml_to_rss_list
 
@@ -96,34 +97,38 @@ args = parser.parse_args()
 load_dotenv()
 
 LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
-# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
-LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
+LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
+# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 
 FILTER_KEYWORDS = os.getenv("FILTER_KEYWORDS", "").split(",")
 THRESHOLD_SEMANTIC_SEARCH = float(os.getenv("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
 MAX_DAYS = int(os.getenv("MAX_DAYS", "3"))
 OPML_FILE = os.getenv("OPML_FILE", "my.opml")
+TOP_P = float(os.getenv("TOP_P", "0.5"))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", "300"))
 
-llm = ChatOllama(
-    model=LLM_MODEL,
-    temperature=LLM_TEMPERATURE,
-    base_url=LLM_API,  # http://localhost:11434
-)
-
-# llm = ChatOpenAI(
-#     temperature=LLM_TEMPERATURE,
-#     top_p=0.9,
+# llm = ChatOllama(
 #     model=LLM_MODEL,
-#     openai_api_base=LLM_API,
-#     openai_api_key="dummy-key-ollama",
+#     temperature=LLM_TEMPERATURE,
+#     base_url=LLM_API,  # http://localhost:11434
+#     top_p=TOP_P,
+#     # num_predict=MAX_TOKENS,
 # )
+
+llm = ChatOpenAI(
+    model=LLM_MODEL,
+    openai_api_base=LLM_API,
+    openai_api_key="dummy-key-ollama",
+    temperature=LLM_TEMPERATURE,
+    top_p=TOP_P,
+    # max_tokens=MAX_TOKENS
+)
 
 # =========================
 # Configuration du modèle d'embeddings
 # https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
 # =========================
-
 
 def get_device_cpu_gpu_info():
     import torch
@@ -135,10 +140,7 @@ def get_device_cpu_gpu_info():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     return device
 
-
-device = get_device_cpu_gpu_info()
-
-model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
+model = SentenceTransformer("all-MiniLM-L6-v2", device=get_device_cpu_gpu_info())
 # model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=device)  # bon compromis pour le français/anglais
 # model = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=device)  # Optimisé pour la similarité
 
@@ -198,7 +200,6 @@ def measure_time(func):
 # Fonctions utilitaires
 # =========================
 
-
 @measure_time
 def filter_articles_with_faiss(
     articles,
@@ -229,10 +230,15 @@ def filter_articles_with_faiss(
             keyword_embeddings = model.encode(
                 keywords, convert_to_tensor=True, show_progress_bar=show_progress
             )
-            keyword_embeddings = keyword_embeddings.cpu().numpy()
+            keyword_embeddings = keyword_embeddings.cpu().numpy()                        
             faiss.normalize_L2(keyword_embeddings)
             index = faiss.IndexFlatIP(keyword_embeddings.shape[1])
             index.add(keyword_embeddings)
+
+            # if get_device_cpu_gpu_info() == "cuda": # nécessite faiss-gpu
+            #     res = faiss.StandardGpuResources()
+            #     index = faiss.index_cpu_to_gpu(res, 0, index)
+
             faiss.write_index(index, index_path)
             return index
 
