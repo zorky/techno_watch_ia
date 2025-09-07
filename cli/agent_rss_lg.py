@@ -269,35 +269,6 @@ def filter_articles_with_faiss(
     )
     return filtered
 
-
-@measure_time
-def filter_articles_with_tfidf(articles, keywords, threshold=0.3):
-    """
-    Filtre les articles par similarité sémantique avec les mots-clés.
-    :param articles: Liste de dicts avec 'title' et 'summary'
-    :param keywords: Liste de mots-clés
-    :param threshold: Seuil de similarité (0 à 1)
-    :return: Articles filtrés
-    """
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.metrics.pairwise import cosine_similarity
-
-    texts = [f"{a['title']} {a['summary']}" for a in articles]
-    vectorizer = TfidfVectorizer()
-    tfidf_matrix = vectorizer.fit_transform(texts)
-    keyword_matrix = vectorizer.transform(keywords)
-
-    similarities = cosine_similarity(tfidf_matrix, keyword_matrix)
-    max_similarities = similarities.max(axis=1)
-
-    filtered = [
-        article
-        for i, article in enumerate(articles)
-        if max_similarities[i] >= threshold
-    ]
-    return filtered
-
-
 def set_prompt(theme, title, content):
     # minimaliste et original
     #     prompt = f"""Tu es un journaliste expert. Résume en français cet article en 3 phrases claires et concises.
@@ -466,6 +437,7 @@ def fetch_rss_articles(rss_urls: list[str], max_age_days: int = 10):
     for url in rss_urls:
         logger.info(Fore.BLUE + f"Lecture du flux RSS : {url}")
         feed = feedparser.parse(url)  # voir Etag et modified pour ne pas tout recharger
+        # feed = feedparser.parse(url, resolve_relative_uris=False, sanitize_html=False)  # voir Etag et modified pour ne pas tout recharger        
         recent_in_feed = 0
 
         for entry in feed.entries:

@@ -4,25 +4,18 @@
 
 ### uv
 
-- création
+- init uv & création
 
 $ uv venv
 $ source .venv/Scripts/activate
-$ uv init
+$ uv sync --dev
+$ uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
-**Paquets installés :**
-
-$ uv add langchain-openai langchain-ollama langgraph langchain_community 
-$ uv add pydantic colorama dotenv feedparser opml
-$ uv add sentence-transformers faiss-cpu # faiss-gpu si GPU
-$ uv add scikit-learn # tfidf
-
-$ uv add ruff --dev
-
-- environnement déjà existant, déjà cloné
+- environnement déjà existant & cloné
 
 $ source .venv/Scripts/activate
 $ uv sync --dev
+$ uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
 ### Prérequis
 
