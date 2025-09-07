@@ -22,10 +22,10 @@ def parse_opml_to_rss_list(opml_file: str) -> list[RSSFeed]:
         "http://dotmobo.github.io/feeds/all.atom.xml",
         "https://cert.ssi.gouv.fr/alerte/feed/",
         "https://www.djangoproject.com/rss/community/",
-        "https://cosmo-games.com/sujet/ia/feed/",
-        "https://belowthemalt.com/feed/",
-        "https://www.ajeetraina.com/rss/",
-        "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
+        # "https://cosmo-games.com/sujet/ia/feed/",
+        # "https://belowthemalt.com/feed/",
+        # "https://www.ajeetraina.com/rss/",
+        # "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
     ]
     try:
         tree = ET.parse(opml_file)

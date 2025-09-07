@@ -63,7 +63,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from langchain_openai import ChatOpenAI
-# from langchain_ollama import ChatOllama
+from langchain_ollama import ChatOllama
 
 import feedparser
 import os
@@ -96,8 +96,8 @@ args = parser.parse_args()
 load_dotenv()
 
 LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
-LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
-# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") # si ChatOllama
+# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
+LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 
 FILTER_KEYWORDS = os.getenv("FILTER_KEYWORDS", "").split(",")
@@ -105,29 +105,41 @@ THRESHOLD_SEMANTIC_SEARCH = float(os.getenv("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
 MAX_DAYS = int(os.getenv("MAX_DAYS", "3"))
 OPML_FILE = os.getenv("OPML_FILE", "my.opml")
 
-# llm = ChatOllama(
-#     model=LLM_MODEL,
-#     temperature=LLM_TEMPERATURE,
-#     base_url=LLM_API,  # http://localhost:11434
-# )
-
-llm = ChatOpenAI(
-    temperature=LLM_TEMPERATURE,
+llm = ChatOllama(
     model=LLM_MODEL,
-    openai_api_base=LLM_API,
-    openai_api_key="dummy-key-ollama",
+    temperature=LLM_TEMPERATURE,
+    base_url=LLM_API,  # http://localhost:11434
 )
+
+# llm = ChatOpenAI(
+#     temperature=LLM_TEMPERATURE,
+#     top_p=0.9,
+#     model=LLM_MODEL,
+#     openai_api_base=LLM_API,
+#     openai_api_key="dummy-key-ollama",
+# )
 
 # =========================
 # Configuration du modèle d'embeddings
 # https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
 # =========================
 
-# model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')  # bon compromis pour le français/anglais
+def get_device_cpu_gpu_info():
+    import torch
+    if torch.cuda.is_available():
+        print(Fore.GREEN + f"GPU disponible : {torch.cuda.get_device_name(0)}")
+    else:
+        print(Fore.RED + "Aucun GPU disponible, utilisation du CPU.")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    return device
+
+device = get_device_cpu_gpu_info()
+
 model = SentenceTransformer(
-    "all-MiniLM-L6-v2"
-)  # plus rapide, mais moins bon pour le français
-# model = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1')  # Optimisé pour la similarité
+    "all-MiniLM-L6-v2",
+    device=device)  
+# model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=device)  # bon compromis pour le français/anglais
+# model = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=device)  # Optimisé pour la similarité
 
 # =========================
 # Configuration du logging
@@ -324,7 +336,7 @@ def set_prompt(theme, title, content):
 
     # **Résumé :**"""
     prompt = f"""Tu es un expert en {theme}. Résume **uniquement** l'article ci-dessous en **3 phrases maximales**, en français, avec :
-1. L'information principale (qui ? quoi ?).
+1. L'information principale (qui ? quoi ?), précise s'il y a du code ou un projet avec du code.
 2. Les détails clés (chiffres, noms, dates).
 3. L'impact ou la solution proposée.
 
@@ -344,7 +356,7 @@ Résumé :"""
 
 def summarize_article(title, content):
     prompt = set_prompt(
-        "IA, technologie, ingénieurie logicielle et cybersécurité", title, content
+        "IA, ingénieurie logicielle et cybersécurité", title, content
     )
 
     if args.debug:
@@ -354,8 +366,8 @@ def summarize_article(title, content):
             + prompt
             + "\n---------------------------"
         )
-    # Appel au LLM
-    result = llm.invoke(prompt, temperature=LLM_TEMPERATURE, top_p=0.9)
+    # Appel au LLM    
+    result = llm.invoke(prompt)
 
     if args.debug:
         logger.debug(
@@ -364,8 +376,7 @@ def summarize_article(title, content):
             + str(result)
             + "\n---------------------------"
         )
-    summary = result.content.strip().strip('"').strip()
-    # return result.content.strip() if hasattr(result, "content") else str(result).strip()    
+    summary = result.content.strip().strip('"').strip()    
     # Nettoyage des introductions génériques
     for prefix in ["Voici un résumé :", "Résumé :", "L'article explique que"]:
         if summary.startswith(prefix):
@@ -374,8 +385,24 @@ def summarize_article(title, content):
 
 
 def strip_html(text: str) -> str:
+    """Supprime les balises HTML d'un texte pour n'avoir que du texte brut."""
     return BeautifulSoup(text, "html.parser").get_text()
 
+
+def get_summary(entry: dict):
+    """
+    Affiche le résumé ou le contenu d'une entrée de flux RSS ou Atom
+       RSS 2.0: 'summary'
+       Atom: 'content'
+
+    Args:
+        entry: Une entrée de flux RSS/Atom.
+    """
+    if "content" in entry.keys():
+        content: list[feedparser.FeedParserDict] = entry.get("content", [dict])
+        return content[0].get("value", "Pas de résumé")
+    else:
+        return entry.get("summary", "Pas de résumé")
 
 def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
     """
@@ -403,14 +430,10 @@ def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_f
 
     if is_recent:
         # Normalisation des champs (RSS/Atom)
-        title = getattr(entry, "title", "Sans titre")
-        summary = getattr(
-            entry,
-            "summary",
-            getattr(entry, "content", [{}])[0].get("value", "Pas de résumé"),
-        )  # revoir pour Atom ou RSS le contenu : summary ou description ou ?
+        title = getattr(entry, "title", "Sans titre")           
+        summary = get_summary(entry)
         summary = strip_html(summary)  # Nettoyage du HTML
-        logger.info(f"Résumé brut (après nettoyage) : {summary}")
+        logger.debug(f"Résumé brut (après nettoyage) : {summary}")
         link = getattr(entry, "link", "#")
         if isinstance(link, list):  # Cas Atom où link est un objet
             link = link[0].href if link else "#"
@@ -519,7 +542,7 @@ def summarize_node(state: RSSState):
         articles = state.filtered_articles[:LIMIT_ARTICLES]
     else:
         logger.info("Pas de limite sur le nombre d'articles à résumer")
-        articles = state.filtered_articles
+        articles = state.filtered_articles    
     summaries = []
     for i, article in enumerate(articles, start=1):
         logger.info(Fore.YELLOW + f"Résumé {i}/{len(articles)} : {article['title']}")
@@ -584,7 +607,7 @@ def main():
     logger.info(
         Fore.YELLOW
         + Style.BRIGHT
-        + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE}"
+        + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE} sur les {MAX_DAYS}"
     )
     rss_urls = get_rss_urls()
     agent = make_graph()
