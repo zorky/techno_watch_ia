@@ -62,7 +62,7 @@ from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel
 from typing import Optional
 
-from langchain_openai import ChatOpenAI
+# from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
 
 import feedparser
@@ -97,7 +97,7 @@ load_dotenv()
 
 LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
 # LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
-LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") # si ChatOllama
+LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 
 FILTER_KEYWORDS = os.getenv("FILTER_KEYWORDS", "").split(",")
@@ -124,8 +124,10 @@ llm = ChatOllama(
 # https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
 # =========================
 
+
 def get_device_cpu_gpu_info():
     import torch
+
     if torch.cuda.is_available():
         print(Fore.GREEN + f"GPU disponible : {torch.cuda.get_device_name(0)}")
     else:
@@ -133,11 +135,10 @@ def get_device_cpu_gpu_info():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     return device
 
+
 device = get_device_cpu_gpu_info()
 
-model = SentenceTransformer(
-    "all-MiniLM-L6-v2",
-    device=device)  
+model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
 # model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=device)  # bon compromis pour le français/anglais
 # model = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=device)  # Optimisé pour la similarité
 
@@ -214,7 +215,6 @@ def filter_articles_with_faiss(
     :return: Articles filtrés
     """
     import faiss
-    import numpy as np
 
     logger.info(f"Filtrage sémantique avec les mots-clés {keywords}")
     logger.info(f"Filtrage sémantique avec seuil {threshold}...")
@@ -268,6 +268,7 @@ def filter_articles_with_faiss(
         f"📊 {len(filtered)}/{len(articles)} articles après filtrage sémantique (seuil={threshold})"
     )
     return filtered
+
 
 def set_prompt(theme, title, content):
     # minimaliste et original
@@ -326,9 +327,7 @@ Résumé :"""
 
 
 def summarize_article(title, content):
-    prompt = set_prompt(
-        "IA, ingénieurie logicielle et cybersécurité", title, content
-    )
+    prompt = set_prompt("IA, ingénieurie logicielle et cybersécurité", title, content)
 
     if args.debug:
         logger.debug(
@@ -337,7 +336,7 @@ def summarize_article(title, content):
             + prompt
             + "\n---------------------------"
         )
-    # Appel au LLM    
+    # Appel au LLM
     result = llm.invoke(prompt)
 
     if args.debug:
@@ -347,11 +346,11 @@ def summarize_article(title, content):
             + str(result)
             + "\n---------------------------"
         )
-    summary = result.content.strip().strip('"').strip()    
+    summary = result.content.strip().strip('"').strip()
     # Nettoyage des introductions génériques
     for prefix in ["Voici un résumé :", "Résumé :", "L'article explique que"]:
         if summary.startswith(prefix):
-            summary = summary[len(prefix):].strip()
+            summary = summary[len(prefix) :].strip()
     return summary
 
 
@@ -374,6 +373,7 @@ def get_summary(entry: dict):
         return content[0].get("value", "Pas de résumé")
     else:
         return entry.get("summary", "Pas de résumé")
+
 
 def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
     """
@@ -401,7 +401,7 @@ def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_f
 
     if is_recent:
         # Normalisation des champs (RSS/Atom)
-        title = getattr(entry, "title", "Sans titre")           
+        title = getattr(entry, "title", "Sans titre")
         summary = get_summary(entry)
         summary = strip_html(summary)  # Nettoyage du HTML
         logger.debug(f"Résumé brut (après nettoyage) : {summary}")
@@ -430,19 +430,21 @@ def fetch_rss_articles(rss_urls: list[str], max_age_days: int = 10):
         rss_urls: Liste des URL des flux RSS/Atom.
         max_age_days: Nombre de jours pour considérer un article comme récent.
     """
-    AGENT="ReaderRSS/1.0"
-    RESOLVE_RELATIVE_URIS=False
-    SANITIZE_HTML=True
+    AGENT = "ReaderRSS/1.0"
+    RESOLVE_RELATIVE_URIS = False
+    SANITIZE_HTML = True
     articles = []
     cutoff_date = datetime.now() - timedelta(days=max_age_days)
     logger.info(f"seuil date : {cutoff_date}")
 
     for url in rss_urls:
-        logger.info(Fore.BLUE + f"Lecture du flux RSS : {url}")        
-        feed = feedparser.parse(url, 
-                                resolve_relative_uris=RESOLVE_RELATIVE_URIS, 
-                                sanitize_html=SANITIZE_HTML,
-                                agent=AGENT)  # voir Etag et modified pour ne pas tout recharger
+        logger.info(Fore.BLUE + f"Lecture du flux RSS : {url}")
+        feed = feedparser.parse(
+            url,
+            resolve_relative_uris=RESOLVE_RELATIVE_URIS,
+            sanitize_html=SANITIZE_HTML,
+            agent=AGENT,
+        )  # voir Etag et modified pour ne pas tout recharger
         recent_in_feed = 0
 
         for entry in feed.entries:
@@ -519,7 +521,7 @@ def summarize_node(state: RSSState):
         articles = state.filtered_articles[:LIMIT_ARTICLES]
     else:
         logger.info("Pas de limite sur le nombre d'articles à résumer")
-        articles = state.filtered_articles    
+        articles = state.filtered_articles
     summaries = []
     for i, article in enumerate(articles, start=1):
         logger.info(Fore.YELLOW + f"Résumé {i}/{len(articles)} : {article['title']}")
