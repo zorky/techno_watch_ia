@@ -11,6 +11,7 @@ SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.server.ntld")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_LOGIN = os.getenv("SMTP_LOGIN", "jdoe")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "pwd")
+SENDER = os.getenv("SENDER", "zorky00@gmail.com")
 SEND_EMAIL_TO = os.getenv("SEND_EMAIL_TO", "jane.do@domain.ntld")
 
 
@@ -68,7 +69,7 @@ def send_watch_articles(articles):
         subject=email_subject,
         html_content=html_content,
         text_content=text_content,
-        sender="olivier.duval@univ-paris8.fr",
+        sender=SENDER,
         to=SEND_EMAIL_TO,
         smtp_server=SMTP_SERVER,
         smtp_port=SMTP_PORT,
@@ -87,7 +88,7 @@ if __name__ == "__main__":
         subject=email_subject,
         html_content=html_content,
         text_content=text_content,
-        sender="olivier.duval@univ-paris8.fr",
+        sender=SENDER,
         to=SEND_EMAIL_TO,
         smtp_server=SMTP_SERVER,
         smtp_port=SMTP_PORT,
