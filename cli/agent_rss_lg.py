@@ -551,7 +551,10 @@ def output_node(state: RSSState):
         )
     return state
 
-
+def send_articles(state: RSSState):
+    from cli import send_watch_articles
+    send_watch_articles(state.articles)
+    
 # =========================
 # Construction du graphe : noeuds (nodes) et transitions (edges)
 # fetch -> filter -> summarize -> output
@@ -562,11 +565,13 @@ def make_graph():
     graph.add_node("filter", RunnableLambda(filter_node))
     graph.add_node("summarize", RunnableLambda(summarize_node))
     graph.add_node("output", RunnableLambda(output_node))
+    graph.add_node("sendarticles", RunnableLambda(send_articles))        
 
     graph.set_entry_point("fetch")
     graph.add_edge("fetch", "filter")
     graph.add_edge("filter", "summarize")
     graph.add_edge("summarize", "output")
+    graph.add_edge("output", "sendarticles")
 
     return graph.compile()
 
