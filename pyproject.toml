@@ -20,6 +20,7 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "scikit-learn>=1.7.1",
     "sentence-transformers>=5.1.0",
+    "ipython>=9.5.0",
 ]
 
 [tool.uv.sources]

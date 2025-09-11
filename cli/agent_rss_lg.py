@@ -62,15 +62,14 @@ from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel
 from typing import Optional
 
-# from langchain_openai import ChatOpenAI
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
+# from langchain_ollama import ChatOllama
 
 import feedparser
 import os
 
 from sentence_transformers import SentenceTransformer
 
-# from utils import measure_time
 from read_opml import parse_opml_to_rss_list
 
 from bs4 import BeautifulSoup
@@ -96,28 +95,28 @@ args = parser.parse_args()
 load_dotenv()
 
 LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
-# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
-LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
+LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
+# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 
 FILTER_KEYWORDS = os.getenv("FILTER_KEYWORDS", "").split(",")
 THRESHOLD_SEMANTIC_SEARCH = float(os.getenv("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
-MAX_DAYS = int(os.getenv("MAX_DAYS", "3"))
+MAX_DAYS = int(os.getenv("MAX_DAYS", "10"))
 OPML_FILE = os.getenv("OPML_FILE", "my.opml")
 
-llm = ChatOllama(
-    model=LLM_MODEL,
-    temperature=LLM_TEMPERATURE,
-    base_url=LLM_API,  # http://localhost:11434
-)
-
-# llm = ChatOpenAI(
-#     temperature=LLM_TEMPERATURE,
-#     top_p=0.9,
+# llm = ChatOllama(
 #     model=LLM_MODEL,
-#     openai_api_base=LLM_API,
-#     openai_api_key="dummy-key-ollama",
+#     temperature=LLM_TEMPERATURE,
+#     base_url=LLM_API,  # http://localhost:11434
 # )
+
+llm = ChatOpenAI(
+    temperature=LLM_TEMPERATURE,
+    top_p=0.9,
+    model=LLM_MODEL,
+    openai_api_base=LLM_API,
+    openai_api_key="dummy-key-ollama",
+)
 
 # =========================
 # Configuration du modèle d'embeddings
@@ -202,7 +201,7 @@ def measure_time(func):
 @measure_time
 def filter_articles_with_faiss(
     articles,
-    keywords,
+    keywords: list[str],
     threshold=0.7,
     index_path="keywords_index.faiss",
     show_progress=False,
@@ -259,6 +258,9 @@ def filter_articles_with_faiss(
             matched_keywords = [
                 keywords[i] for i in indices[0] if similarities[0][i] >= threshold
             ]
+            # logger.info(
+            #     f"Similarities: {similarities[0]}, Indices: {indices[0]}"
+            # )
             logger.info(
                 f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']} {article['link']}"
             )
@@ -326,7 +328,7 @@ Résumé :"""
     return prompt
 
 
-def summarize_article(title, content):
+def summarize_article(title, content):    
     prompt = set_prompt("IA, ingénieurie logicielle et cybersécurité", title, content)
 
     if args.debug:
@@ -577,6 +579,13 @@ def get_rss_urls():
     rss_list_opml = parse_opml_to_rss_list(OPML_FILE)
     return [feed.lien_rss for feed in rss_list_opml]
 
+def _show_graph(graph):
+    from IPython.display import Image, display
+    display(Image(graph.get_graph().draw_mermaid_png()))
+    try:
+        display(Image(graph.get_graph().draw_mermaid_png()))
+    except Exception as e:
+        logger.error(f"{e}")        
 
 # =========================
 # Main
@@ -586,10 +595,11 @@ def main():
     logger.info(
         Fore.YELLOW
         + Style.BRIGHT
-        + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE} sur les {MAX_DAYS}"
+        + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE} sur les {MAX_DAYS} derniers jours"
     )
     rss_urls = get_rss_urls()
     agent = make_graph()
+    # _show_graph(agent)
     state = RSSState(
         rss_urls=rss_urls,
         keywords=FILTER_KEYWORDS
