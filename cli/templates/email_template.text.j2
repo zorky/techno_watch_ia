@@ -1,0 +1,13 @@
+Veille Techno - Résumé du {{ date }}
+
+Articles filtrés et résumés :
+
+{% for article in articles %}
+Titre: {{ article.title }}
+{# Source: {{ article.source }} #}
+Lien: {{ article.link }}
+Résumé: {{ article.summary }}
+{# Mots-clés: {{ article.keywords|join(', ') }} #}
+
+---
+{% endfor %}

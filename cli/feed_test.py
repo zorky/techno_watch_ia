@@ -1,5 +1,5 @@
 """
-Script de test pour analyser et afficher les informations d'un flux RSS ou Atom, notamment le contenu des entrées.
+Script de test pour analyser et afficher les informations d'un flux RSS ou Atom, notamment le contenu des entrées avec feedparser
 https://feedparser.readthedocs.io/en/latest/
 """
 import feedparser

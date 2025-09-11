@@ -70,8 +70,6 @@ import os
 
 from sentence_transformers import SentenceTransformer
 
-# from core.utils import measure_time
-# from utils import measure_time
 from read_opml import parse_opml_to_rss_list
 
 from bs4 import BeautifulSoup
@@ -103,7 +101,7 @@ LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 
 FILTER_KEYWORDS = os.getenv("FILTER_KEYWORDS", "").split(",")
 THRESHOLD_SEMANTIC_SEARCH = float(os.getenv("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
-MAX_DAYS = int(os.getenv("MAX_DAYS", "3"))
+MAX_DAYS = int(os.getenv("MAX_DAYS", "10"))
 OPML_FILE = os.getenv("OPML_FILE", "my.opml")
 TOP_P = float(os.getenv("TOP_P", "0.5"))
 MAX_TOKENS = int(os.getenv("MAX_TOKENS", "300"))
@@ -203,7 +201,7 @@ def measure_time(func):
 @measure_time
 def filter_articles_with_faiss(
     articles,
-    keywords,
+    keywords: list[str],
     threshold=0.7,
     index_path="keywords_index.faiss",
     show_progress=False,
@@ -265,6 +263,9 @@ def filter_articles_with_faiss(
             matched_keywords = [
                 keywords[i] for i in indices[0] if similarities[0][i] >= threshold
             ]
+            # logger.info(
+            #     f"Similarities: {similarities[0]}, Indices: {indices[0]}"
+            # )
             logger.info(
                 f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']} {article['link']}"
             )
@@ -332,7 +333,7 @@ Résumé :"""
     return prompt
 
 
-def summarize_article(title, content):
+def summarize_article(title, content):    
     prompt = set_prompt("IA, ingénieurie logicielle et cybersécurité", title, content)
 
     if args.debug:
@@ -555,7 +556,10 @@ def output_node(state: RSSState):
         )
     return state
 
-
+def send_articles(state: RSSState):
+    from cli import send_watch_articles
+    send_watch_articles(state.articles)
+    
 # =========================
 # Construction du graphe : noeuds (nodes) et transitions (edges)
 # fetch -> filter -> summarize -> output
@@ -566,11 +570,13 @@ def make_graph():
     graph.add_node("filter", RunnableLambda(filter_node))
     graph.add_node("summarize", RunnableLambda(summarize_node))
     graph.add_node("output", RunnableLambda(output_node))
+    graph.add_node("sendarticles", RunnableLambda(send_articles))        
 
     graph.set_entry_point("fetch")
     graph.add_edge("fetch", "filter")
     graph.add_edge("filter", "summarize")
     graph.add_edge("summarize", "output")
+    graph.add_edge("output", "sendarticles")
 
     return graph.compile()
 
@@ -583,6 +589,13 @@ def get_rss_urls():
     rss_list_opml = parse_opml_to_rss_list(OPML_FILE)
     return [feed.lien_rss for feed in rss_list_opml]
 
+def _show_graph(graph):
+    from IPython.display import Image, display
+    display(Image(graph.get_graph().draw_mermaid_png()))
+    try:
+        display(Image(graph.get_graph().draw_mermaid_png()))
+    except Exception as e:
+        logger.error(f"{e}")        
 
 # =========================
 # Main
@@ -592,10 +605,11 @@ def main():
     logger.info(
         Fore.YELLOW
         + Style.BRIGHT
-        + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE} sur les {MAX_DAYS}"
+        + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE} sur les {MAX_DAYS} derniers jours"
     )
     rss_urls = get_rss_urls()
     agent = make_graph()
+    # _show_graph(agent)
     state = RSSState(
         rss_urls=rss_urls,
         keywords=FILTER_KEYWORDS
