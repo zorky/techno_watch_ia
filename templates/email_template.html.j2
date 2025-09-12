@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Veille Techno - Résumé du {{ date }}</title>
+</head>
+<body>
+    <h2>Veille Techno - Résumé du {{ date }}</h2>
+    <h4>Les {{articles|length}} derniers articles filtrés et résumés</h4>
+    <h5>Mots clés : {{keywords | join(', ')}} sur un seuil >= {{threshold}}</h5>
+    {% for article in articles %}
+        <div style="margin-bottom: 20px; border: 1px solid #ddd; padding: 10px;">
+            <h3><a href="{{ article.link }}">🔗 {{ article.title }}</a> - {{ article.scoring }}</h3>            
+            <p>📰 {{ article.summary | replace('\n', '<br>') | safe }}</p>    
+        </div>
+    {% endfor %}
+</body>
+</html>

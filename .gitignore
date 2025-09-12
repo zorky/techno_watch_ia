@@ -1,3 +1,10 @@
+*.opml
+*.faiss
+
+# my.opml 
+# keywords_index.faiss
+.history/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
