@@ -1,6 +1,3 @@
-from utils import measure_time
-
-@measure_time
 def filter_articles_with_tfidf(articles, keywords, threshold=0.3):
     """
     Filtre les articles par similarité sémantique avec les mots-clés.
