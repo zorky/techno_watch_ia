@@ -3,11 +3,12 @@
 """
 Agent RSS avec résumé automatique via LLM local.
 
-Ce script exécute ces actions, dans l'ordre :
+Ce script / cli exécute ces actions, dans l'ordre :
 - Lit une liste de flux RSS
 - Filtre les articles selon des mots-clés
 - Résume les articles avec un modèle LLM local (Ollama)
 - Affiche les résultats en console
+- Envoi la revue de veille par mail
 
 Framework : LangGraph pour le graphe des actions (noeuds)
 
@@ -31,11 +32,12 @@ Installation et Configuration :
    ```
    paquets : langgraph, langchain, langchain_core, pydantic, feedparser
 
- - un fichier .env est possible pour surcharger 3 variables :
+ - un fichier .env est possible pour surcharger des variables, voir le .env.example :
+
    LLM_MODEL (par défaut mistal),
    LLM_TEMPERATURE (par défaut 0.3),
    OLLAMA_BASE_URL (par défaut http://localhost:11434/v1)
-   LIMIT_ARTICLES (par défaut -1 : pas de limite)
+   LIMIT_ARTICLES_TO_RESUME (par défaut -1 : pas de limite) : pour l'inférence, combien d'articles le LLM doit résumer ?
    RSS_URLS (par défaut la liste dans _get_rss_urls) : sur une seule ligne
 
    Exemple :
@@ -98,13 +100,16 @@ LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
 LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
 # LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
+# Modèles embeddings disponibles et spécs : https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
+MODEL_EMBEDDINGS="all-MiniLM-L6-v2"
+# MODEL_EMBEDDINGS="all-mpnet-base-v2"
 
 FILTER_KEYWORDS = os.getenv("FILTER_KEYWORDS", "").split(",")
 THRESHOLD_SEMANTIC_SEARCH = float(os.getenv("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
 MAX_DAYS = int(os.getenv("MAX_DAYS", "10"))
 OPML_FILE = os.getenv("OPML_FILE", "my.opml")
 TOP_P = float(os.getenv("TOP_P", "0.5"))
-MAX_TOKENS = int(os.getenv("MAX_TOKENS", "300"))
+MAX_TOKENS_GENERATE = int(os.getenv("MAX_TOKENS_GENERATE", "300"))
 
 # llm = ChatOllama(
 #     model=LLM_MODEL,
@@ -120,11 +125,12 @@ llm = ChatOpenAI(
     openai_api_key="dummy-key-ollama",
     temperature=LLM_TEMPERATURE,
     top_p=TOP_P,
-    # max_tokens=MAX_TOKENS
+    max_tokens=MAX_TOKENS_GENERATE
 )
 
 # =========================
 # Configuration du modèle d'embeddings
+# Modèles disponibles et spécs : 
 # https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
 # =========================
 
@@ -138,7 +144,7 @@ def get_device_cpu_gpu_info():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     return device
 
-model = SentenceTransformer("all-MiniLM-L6-v2", device=get_device_cpu_gpu_info())
+model = SentenceTransformer(MODEL_EMBEDDINGS, device=get_device_cpu_gpu_info())
 # model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=device)  # bon compromis pour le français/anglais
 # model = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=device)  # Optimisé pour la similarité
 
@@ -277,7 +283,26 @@ def filter_articles_with_faiss(
     return filtered
 
 
-def set_prompt(theme, title, content):
+def set_prompt(theme, title, content):    
+    prompt = f"""Tu es un expert en {theme}. Résume **uniquement** l'article ci-dessous en **3 phrases maximales**, en français, avec :
+1. L'information principale (qui ? quoi ?), précise s'il y a du code ou un projet avec du code.
+2. Les détails clés (chiffres, noms, dates).
+3. L'impact ou la solution proposée.
+
+**Exemple :**
+Titre : "Sortie de Python 3.12 avec un compilateur JIT"
+Contenu : "Python 3.12 intègre un compilateur JIT expérimental..."
+Résumé : Python 3.12 introduit un compilateur JIT expérimental pour accélérer l'exécution. Les tests montrent un gain de 10 à 30% sur certains workloads. Disponible en version bêta dès septembre 2025.
+
+**À résumer :**
+{title}
+
+Contenu : {content}
+
+Résumé :"""
+
+    return prompt
+
     # minimaliste et original
     #     prompt = f"""Tu es un journaliste expert. Résume en français cet article en 3 phrases claires et concises.
     # Titre : {title}
@@ -314,23 +339,6 @@ def set_prompt(theme, title, content):
     # **Contenu :** {content}
 
     # **Résumé :**"""
-    prompt = f"""Tu es un expert en {theme}. Résume **uniquement** l'article ci-dessous en **3 phrases maximales**, en français, avec :
-1. L'information principale (qui ? quoi ?), précise s'il y a du code ou un projet avec du code.
-2. Les détails clés (chiffres, noms, dates).
-3. L'impact ou la solution proposée.
-
-**Exemple :**
-Titre : "Sortie de Python 3.12 avec un compilateur JIT"
-Contenu : "Python 3.12 intègre un compilateur JIT expérimental..."
-Résumé : Python 3.12 introduit un compilateur JIT expérimental pour accélérer l'exécution. Les tests montrent un gain de 10 à 30% sur certains workloads. Disponible en version bêta dès septembre 2025.
-
-**À résumer :**
-Titre : {title}
-Contenu : {content}
-
-Résumé :"""
-
-    return prompt
 
 
 def summarize_article(title, content):    
@@ -483,6 +491,7 @@ def filter_articles_by_keywords(articles, keywords):
 # =========================
 # Définition de l’état langgraph
 # =========================
+
 class RSSState(BaseModel):
     rss_urls: list[str]
     keywords: list[str]
@@ -494,7 +503,7 @@ class RSSState(BaseModel):
 # =========================
 # Nœuds du graphe
 # =========================
-def fetch_node(state: RSSState):
+def fetch_node(state: RSSState) -> RSSState:
     logger.info("📥 Récupération des articles...")
 
     articles = fetch_rss_articles(state.rss_urls, MAX_DAYS)
@@ -503,7 +512,7 @@ def fetch_node(state: RSSState):
     return state.model_copy(update={"articles": articles})
 
 
-def filter_node(state: RSSState):
+def filter_node(state: RSSState) -> RSSState:
     logger.info("🔍 Filtrage des articles par mots-clés...")
 
     # filtered = filter_articles_by_keywords(state.articles, state.keywords)
@@ -520,12 +529,12 @@ def filter_node(state: RSSState):
     return state.model_copy(update={"filtered_articles": filtered})
 
 
-def summarize_node(state: RSSState):
+def summarize_node(state: RSSState) -> RSSState:
     logger.info("✏️  Résumé des articles filtrés...")
-    LIMIT_ARTICLES = int(os.getenv("LIMIT_INFERENCE_ARTICLES", -1))
-    if LIMIT_ARTICLES > 0:
-        logger.info(f"Limite de résumé à {LIMIT_ARTICLES} articles")
-        articles = state.filtered_articles[:LIMIT_ARTICLES]
+    LIMIT_ARTICLES_TO_RESUME = int(os.getenv("LIMIT_ARTICLES_TO_RESUME", -1))
+    if LIMIT_ARTICLES_TO_RESUME > 0:
+        logger.info(f"Limite de résumé à {LIMIT_ARTICLES_TO_RESUME} articles")
+        articles = state.filtered_articles[:LIMIT_ARTICLES_TO_RESUME]
     else:
         logger.info("Pas de limite sur le nombre d'articles à résumer")
         articles = state.filtered_articles
@@ -543,7 +552,7 @@ def summarize_node(state: RSSState):
     return state.model_copy(update={"summaries": summaries})
 
 
-def output_node(state: RSSState):
+def output_node(state: RSSState) -> RSSState:
     logger.info("📄 Affichage des résultats finaux")
     for item in state.summaries:
         print(
@@ -557,8 +566,8 @@ def output_node(state: RSSState):
     return state
 
 def send_articles(state: RSSState):
-    from sendemail import send_watch_articles
-    logger.info(f"Envoi de {len(state.summaries)}")
+    from send_articles_email import send_watch_articles
+    logger.info(f"Envoi de {len(state.summaries)} articles")
     send_watch_articles(state.summaries)
     
 # =========================

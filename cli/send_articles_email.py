@@ -6,6 +6,10 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
 
+# =========================
+# Configuration SMTP
+# =========================
+
 load_dotenv()
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.server.ntld")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
@@ -14,24 +18,18 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "pwd")
 SENDER = os.getenv("SENDER", "zorky00@gmail.com")
 SEND_EMAIL_TO = os.getenv("SEND_EMAIL_TO", "jane.do@domain.ntld")
 
+# =========================
+# Rendu du template Jinja2
+# =========================
 
 def render_email_template(articles: list[dict], template_name: str) -> str:
     env = Environment(loader=FileSystemLoader("templates"))
     template = env.get_template(template_name)
     return template.render(articles=articles, date=datetime.now().strftime("%d/%m/%Y"))
 
-# Exemple d'utilisation
-articles = [
-    {
-        "title": "Nouveautés en IA générative",
-        "source": "NYT Technology",
-        "link": "https://example.com/article1",
-        "summary": "Résumé généré par l'IA...",
-        "keywords": ["IA", "générative"],
-    },
-    # ... autres articles
-]
-
+# =========================
+# Envoi du mail
+# =========================
 
 def _send_email(
     subject: str,
@@ -78,6 +76,18 @@ def send_watch_articles(articles):
     )
 
 if __name__ == "__main__":
+    articles = [
+    "L'IA révolutionne la médecine en 2025",
+    "Les dernières avancées en robotique industrielle",
+    "Comment l'énergie solaire transforme les villes",
+    "La cybersécurité face aux nouvelles menaces",
+    "Le cloud computing et la gestion des données",
+    "L'impact de la 5G sur les objets connectés",
+    "Les tendances du e-commerce en Europe",
+    "L'automatisation dans le secteur bancaire",
+    "L'évolution des véhicules électriques",
+    "L'intelligence artificielle dans l'éducation"
+    ]
     current_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     email_subject = f"[VEILLE] Revue de veille techno du {current_date}"
     html_content = render_email_template(articles, "email_template.html.j2")
