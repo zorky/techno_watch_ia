@@ -3,10 +3,7 @@ import logging
 import xml.etree.ElementTree as ET
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.propagate = False
-
+from core import logger
 
 class RSSFeed(NamedTuple):
     titre: str
@@ -16,9 +13,14 @@ class RSSFeed(NamedTuple):
 
 def parse_opml_to_rss_list(opml_file: str) -> list[RSSFeed]:
     """
-    Parse un fichier OPML et retourne une liste de RSSFeed (NamedTuple).
+    Lit et parse un fichier OPML et retourne une liste de RSSFeed (NamedTuple).
+
+    Args:
+        opml_file: le fichier à lire
     """
-    default_list = [
+    logger.info(f"Lecture du fichier OPML...")
+
+    default_rss_list = [
         "http://dotmobo.github.io/feeds/all.atom.xml",
         "https://cert.ssi.gouv.fr/alerte/feed/",
         "https://www.djangoproject.com/rss/community/",
@@ -45,7 +47,7 @@ def parse_opml_to_rss_list(opml_file: str) -> list[RSSFeed]:
         )
         rss_feeds = [
             RSSFeed(titre="Flux par défaut", lien_rss=url, lien_web="Aucun lien web")
-            for url in default_list
+            for url in default_rss_list
         ]
     return rss_feeds
 
@@ -53,8 +55,11 @@ def parse_opml_to_rss_list(opml_file: str) -> list[RSSFeed]:
 def filter_rss_by_keywords(
     rss_list: list[RSSFeed], keywords: list[str]
 ) -> list[RSSFeed]:
-    """
-    Filtre les flux RSS dont le titre ou l'URL contient l'un des mots-clés donnés.
+    """Filtre les flux RSS dont le titre ou l'URL contient l'un des mots-clés donnés.
+
+    Args:
+        rss_list : la liste des flux RSS (URL) à traiter
+        keywords : les mots clés de filtrage
     """
     filtered = []
     for feed in rss_list:

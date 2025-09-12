@@ -54,7 +54,7 @@ Installation et Configuration :
 
 import logging
 from datetime import datetime, timedelta
-from colorama import Fore, Style, init
+from colorama import Fore, Style
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph
 from langchain_core.runnables import RunnableLambda
@@ -343,8 +343,8 @@ def get_summary(entry: dict):
     if "content" in entry.keys():
         content: list[feedparser.FeedParserDict] = entry.get("content", [dict])
         return content[0].get("value", "Pas de résumé")
-    else:
-        return entry.get("summary", "Pas de résumé")
+    
+    return entry.get("summary", "Pas de résumé")
 
 
 def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
