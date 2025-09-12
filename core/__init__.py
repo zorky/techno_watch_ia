@@ -1,5 +1,6 @@
-from .utils import measure_time
+from .utils import measure_time, logger
 
 __all__ = [
-    'measure_time'
+    'measure_time',
+    'logger'
 ]

@@ -59,8 +59,6 @@ from colorama import Fore, Style, init
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph
 from langchain_core.runnables import RunnableLambda
-from pydantic import BaseModel
-from typing import Optional
 
 from langchain_openai import ChatOpenAI
 # from langchain_ollama import ChatOllama
@@ -78,21 +76,7 @@ from bs4 import BeautifulSoup
 from core import measure_time
 
 # =========================
-# Init couleurs
-# =========================
-init(autoreset=True)
-
-# =========================
-# Parsing des arguments CLI
-# =========================
-parser = argparse.ArgumentParser(description="Agent RSS avec résumés LLM")
-parser.add_argument(
-    "--debug", action="store_true", help="Active le mode debug détaillé"
-)
-args = parser.parse_args()
-
-# =========================
-# Configuration du modèle LLM
+# Configuration du modèle LLM et configurations recherche
 # =========================
 
 load_dotenv()
@@ -113,41 +97,13 @@ TOP_P = float(os.getenv("TOP_P", "0.5"))
 MAX_TOKENS_GENERATE = int(os.getenv("MAX_TOKENS_GENERATE", "300"))
 
 # =========================
-# Configuration du logging
+# Init du logging et logger
+# Par défaut INFO
+# Forcer à DEBUG : python main_agent_rss.py --debug
 # =========================
 
 logging.basicConfig(level=logging.INFO)
-
-# =========================
-# Formatter coloré
-# =========================
-class ColorFormatter(logging.Formatter):
-    COLORS = {
-        logging.DEBUG: Fore.CYAN,
-        logging.INFO: Fore.GREEN,
-        logging.WARNING: Fore.YELLOW,
-        logging.ERROR: Fore.RED,
-        logging.CRITICAL: Fore.RED + Style.BRIGHT,
-    }
-
-    def format(self, record):
-        color = self.COLORS.get(record.levelno, "")
-        levelname_color = color + record.levelname + Style.RESET_ALL
-        record.levelname = levelname_color
-        return super().format(record)
-
-
-formatter = ColorFormatter(
-    fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%H:%M:%S"
-)
-
-handler = logging.StreamHandler()
-handler.setFormatter(formatter)
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
-logger.addHandler(handler)
-logger.propagate = False
+from core import logger
 
 # =========================
 # Configuration LLM local / saas
