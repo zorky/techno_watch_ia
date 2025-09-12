@@ -520,14 +520,14 @@ def make_graph():
     graph.add_node("fetch", RunnableLambda(fetch_node))
     graph.add_node("filter", RunnableLambda(filter_node))
     graph.add_node("summarize", RunnableLambda(summarize_node))
-    graph.add_node("output", RunnableLambda(output_node))
-    graph.add_node("sendarticles", RunnableLambda(send_articles))        
+    graph.add_node("displayoutput", RunnableLambda(output_node))
+    graph.add_node("sendsummaries", RunnableLambda(send_articles))        
 
     graph.set_entry_point("fetch")
     graph.add_edge("fetch", "filter")
     graph.add_edge("filter", "summarize")
-    graph.add_edge("summarize", "output")
-    graph.add_edge("output", "sendarticles")
+    graph.add_edge("summarize", "displayoutput")
+    graph.add_edge("displayoutput", "sendsummaries")
 
     return graph.compile()
 
@@ -549,7 +549,8 @@ def _show_graph(graph):
         import matplotlib.pyplot as plt
         import matplotlib.image as mpimg
         import io
-         
+        
+        plt.ion()
         png_data = _get_graph(_graph).draw_mermaid_png()
         img = mpimg.imread(io.BytesIO(png_data), format='PNG')
         plt.imshow(img)
@@ -565,7 +566,7 @@ def _show_graph(graph):
         display(Image(_get_graph(_graph).draw_mermaid_png()))    
 
     try:
-        # _display_graph_matplot(graph)
+        _display_graph_matplot(graph)
         _display_graph_ascii(graph)
     except Exception as e:
         logger.error(f"{e}")        
@@ -584,7 +585,7 @@ def main():
     rss_urls = get_rss_urls()
     agent = make_graph()
     if argscli.debug:
-        logger.info(f"🤖 L'automate déroulé :")
+        logger.info(f"🤖 LangGraph déroulera cet automate...")
         _show_graph(agent)
     state = RSSState(
         rss_urls=rss_urls,
