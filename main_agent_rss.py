@@ -549,7 +549,7 @@ def _show_graph(graph):
         import matplotlib.image as mpimg
         import io
         
-        plt.ion()
+        # plt.ion()
         png_data = _get_graph(_graph).draw_mermaid_png()
         img = mpimg.imread(io.BytesIO(png_data), format='PNG')
         plt.imshow(img)
