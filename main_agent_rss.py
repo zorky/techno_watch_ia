@@ -70,6 +70,7 @@ import os
 
 from sentence_transformers import SentenceTransformer
 
+from models.states import RSSState
 from read_opml import parse_opml_to_rss_list
 
 from bs4 import BeautifulSoup
@@ -111,49 +112,11 @@ OPML_FILE = os.getenv("OPML_FILE", "my.opml")
 TOP_P = float(os.getenv("TOP_P", "0.5"))
 MAX_TOKENS_GENERATE = int(os.getenv("MAX_TOKENS_GENERATE", "300"))
 
-# llm = ChatOllama(
-#     model=LLM_MODEL,
-#     temperature=LLM_TEMPERATURE,
-#     base_url=LLM_API,  # http://localhost:11434
-#     top_p=TOP_P,
-#     # num_predict=MAX_TOKENS,
-# )
-
-llm = ChatOpenAI(
-    model=LLM_MODEL,
-    openai_api_base=LLM_API,
-    openai_api_key="dummy-key-ollama",
-    temperature=LLM_TEMPERATURE,
-    top_p=TOP_P,
-    max_tokens=MAX_TOKENS_GENERATE
-)
-
-# =========================
-# Configuration du modèle d'embeddings
-# Modèles disponibles et spécs : 
-# https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
-# =========================
-
-def get_device_cpu_gpu_info():
-    import torch
-
-    if torch.cuda.is_available():
-        print(Fore.GREEN + f"GPU disponible : {torch.cuda.get_device_name(0)}")
-    else:
-        print(Fore.RED + "Aucun GPU disponible, utilisation du CPU.")
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    return device
-
-model = SentenceTransformer(MODEL_EMBEDDINGS, device=get_device_cpu_gpu_info())
-# model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=device)  # bon compromis pour le français/anglais
-# model = SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=device)  # Optimisé pour la similarité
-
 # =========================
 # Configuration du logging
 # =========================
 
 logging.basicConfig(level=logging.INFO)
-
 
 # =========================
 # Formatter coloré
@@ -186,8 +149,51 @@ logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
 logger.addHandler(handler)
 logger.propagate = False
 
+# =========================
+# Configuration LLM local / saas
+# =========================
+def init_llm_chat():
+    return ChatOpenAI(
+        model=LLM_MODEL,
+        openai_api_base=LLM_API,
+        openai_api_key="dummy-key-ollama",
+        temperature=LLM_TEMPERATURE,
+        top_p=TOP_P,
+        max_tokens=MAX_TOKENS_GENERATE
+    )
+    # return ChatOllama(
+    #     model=LLM_MODEL,
+    #     temperature=LLM_TEMPERATURE,
+    #     base_url=LLM_API,  # http://localhost:11434
+    #     top_p=TOP_P,
+    #     # num_predict=MAX_TOKENS,
+    # )
 
+llm = init_llm_chat()
 
+# =========================
+# Configuration du modèle d'embeddings
+# Modèles disponibles et spécs : 
+# https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
+# =========================
+
+def get_device_cpu_gpu_info():
+    import torch
+
+    if torch.cuda.is_available():
+        logger.info(Fore.GREEN + f"GPU disponible : {torch.cuda.get_device_name(0)}")
+    else:
+        logger.info(Fore.RED + "Aucun GPU disponible, utilisation du CPU.")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    return device
+
+def init_sentence_model():
+    logger.info(Fore.GREEN + f"Init SentenceTransformer {MODEL_EMBEDDINGS}")
+    return SentenceTransformer(MODEL_EMBEDDINGS, device=get_device_cpu_gpu_info())
+    # return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=device)  # bon compromis pour le français/anglais
+    # return SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=device)  # Optimisé pour la similarité
+
+model = init_sentence_model()
 
 
 # =========================
@@ -483,18 +489,6 @@ def filter_articles_by_keywords(articles, keywords):
     logger.debug(f"{len(filtered)} articles après filtrage")
     return filtered
 
-
-# =========================
-# Définition de l’état langgraph
-# =========================
-
-class RSSState(BaseModel):
-    rss_urls: list[str]
-    keywords: list[str]
-    articles: Optional[list[dict]] = None
-    filtered_articles: Optional[list[dict]] = None
-    summaries: Optional[list[dict]] = None
-
 # =========================
 # Nœuds du graphe
 # =========================
@@ -566,7 +560,8 @@ def output_node(state: RSSState) -> RSSState:
 
 def send_articles(state: RSSState):
     logger.info("Envoi mail des articles")
-    from send_articles_email import send_watch_articles, EmailTemplateParams    
+    from send_articles_email import send_watch_articles
+    from models.emails import EmailTemplateParams    
     logger.info(f"Envoi de {len(state.summaries)} articles")
     _params_mail = EmailTemplateParams(
         articles=state.summaries,
