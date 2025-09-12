@@ -13,7 +13,7 @@ Ce script / cli exécute ces actions, dans l'ordre :
 Framework : LangGraph pour le graphe des actions (noeuds)
 
 Usage :
-    python agent_rss.py --debug
+    python main_agent_rss.py [--debug]
 
 Installation et Configuration :
 
@@ -53,7 +53,6 @@ Installation et Configuration :
 """
 
 import logging
-import argparse
 from datetime import datetime, timedelta
 from colorama import Fore, Style, init
 from dotenv import load_dotenv
@@ -541,7 +540,7 @@ def get_rss_urls():
     return [feed.lien_rss for feed in rss_list_opml]
 
 def _show_graph(graph):
-    """Affichage le graphe / automate LangGraph qui est utilisé"""
+    """Affichage du graphe / automate LangGraph qui est utilisé"""
     def _get_graph(_graph):
         return _graph.get_graph()
     
@@ -566,7 +565,7 @@ def _show_graph(graph):
         display(Image(_get_graph(_graph).draw_mermaid_png()))    
 
     try:
-        _display_graph_matplot(graph)
+        # _display_graph_matplot(graph)
         _display_graph_ascii(graph)
     except Exception as e:
         logger.error(f"{e}")        
