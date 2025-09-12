@@ -275,6 +275,11 @@ def filter_articles_with_faiss(
             logger.info(
                 f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']} {article['link']}"
             )
+            # article['scoring'] = round(max_similarity, 2)
+            article['scoring'] = f"{max_similarity * 100:.1f} %"
+            logger.info(
+                f"{article['title']} -> {article['scoring']}"
+            )
             filtered.append(article)
 
     logger.info(
@@ -430,6 +435,7 @@ def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_f
                 "summary": summary,
                 "link": link,
                 "published": published_time.isoformat() if published_time else None,
+                "scoring": "0 %"
             }
         )
         recent_in_feed += 1
@@ -499,7 +505,6 @@ class RSSState(BaseModel):
     filtered_articles: Optional[list[dict]] = None
     summaries: Optional[list[dict]] = None
 
-
 # =========================
 # Nœuds du graphe
 # =========================
@@ -508,7 +513,8 @@ def fetch_node(state: RSSState) -> RSSState:
 
     articles = fetch_rss_articles(state.rss_urls, MAX_DAYS)
     logger.info(f"{len(articles)} articles récupérés")
-
+    logger.info(f"{articles[0]['title']} {articles[0]['scoring']}")
+     
     return state.model_copy(update={"articles": articles})
 
 
@@ -547,17 +553,20 @@ def summarize_node(state: RSSState) -> RSSState:
                 "title": article["title"],
                 "summary": summary_text,
                 "link": article["link"],
+                "scoring": article["scoring"]
             }
         )
     return state.model_copy(update={"summaries": summaries})
 
 
-def output_node(state: RSSState) -> RSSState:
+def output_node(state: RSSState) -> RSSState:    
     logger.info("📄 Affichage des résultats finaux")
     for item in state.summaries:
         print(
             Fore.CYAN
             + f"\n📰 {item['title']}\n"
+            + Fore.CYAN
+            + f"\n📈 {item['scoring']}\n"
             + Fore.GREEN
             + f"📝 {item['summary']}\n"
             + Fore.BLUE
@@ -566,10 +575,15 @@ def output_node(state: RSSState) -> RSSState:
     return state
 
 def send_articles(state: RSSState):
-    from send_articles_email import send_watch_articles    
+    logger.info("Envoi mail des articles")
+    from send_articles_email import send_watch_articles, EmailTemplateParams    
     logger.info(f"Envoi de {len(state.summaries)} articles")
-    send_watch_articles(articles=state.summaries,
-                        keywords=state.keywords)
+    _params_mail = EmailTemplateParams(
+        articles=state.summaries,
+        keywords=state.keywords,
+        threshold=THRESHOLD_SEMANTIC_SEARCH
+    )
+    send_watch_articles(_params_mail)    
     
 # =========================
 # Construction du graphe : noeuds (nodes) et transitions (edges)

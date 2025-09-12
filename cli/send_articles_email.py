@@ -5,6 +5,12 @@ import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
+
+class EmailTemplateParams(BaseModel):
+    articles: list[dict]
+    keywords: list[str]
+    threshold: float = Field(default=0.5, ge=0, le=1)    
 
 # =========================
 # Configuration SMTP
@@ -22,10 +28,25 @@ SEND_EMAIL_TO = os.getenv("SEND_EMAIL_TO", "jane.do@domain.ntld")
 # Rendu du template Jinja2
 # =========================
 
-def render_email_template(articles: list[dict], keywords: list[str], template_name: str, /) -> str:
+def render_email_template(params: EmailTemplateParams, template_name: str, /) -> str:
     env = Environment(loader=FileSystemLoader("templates"))
     template = env.get_template(template_name)
-    return template.render(articles=articles, keywords=keywords, date=datetime.now().strftime("%d/%m/%Y"))
+    _threshold_str = f"{int(params.threshold * 100)}%"
+    return template.render(articles=params.articles, 
+                           keywords=params.keywords, 
+                           threshold=_threshold_str,
+                           date=datetime.now().strftime("%d/%m/%Y"))
+
+# def render_email_template(articles: list[dict], 
+#                           keywords: list[str], 
+#                           threshold: str,
+#                           template_name: str, /) -> str:
+#     env = Environment(loader=FileSystemLoader("templates"))
+#     template = env.get_template(template_name)
+#     return template.render(articles=articles, 
+#                            keywords=keywords, 
+#                            threshold=threshold,
+#                            date=datetime.now().strftime("%d/%m/%Y"))
 
 # =========================
 # Envoi du mail
@@ -58,11 +79,11 @@ def _send_email(
         server.login(login, password)
         server.sendmail(sender, to, msg.as_string())
 
-def send_watch_articles(articles, keywords: list[str] = None):
+def send_watch_articles(params: EmailTemplateParams):
     current_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     email_subject = f"[VEILLE] Revue de veille techno du {current_date}"
-    html_content = render_email_template(articles, keywords, "email_template.html.j2")
-    text_content = render_email_template(articles, keywords , "email_template.text.j2")
+    html_content = render_email_template(params, "email_template.html.j2")
+    text_content = render_email_template(params, "email_template.text.j2")
     _send_email(
         subject=email_subject,
         html_content=html_content,
@@ -74,6 +95,23 @@ def send_watch_articles(articles, keywords: list[str] = None):
         login=SMTP_LOGIN,
         password=SMTP_PASSWORD,
     )
+
+# def send_watch_articles(articles, keywords: list[str] = None, threshold: str = None):
+#     current_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+#     email_subject = f"[VEILLE] Revue de veille techno du {current_date}"
+#     html_content = render_email_template(articles, keywords, threshold, "email_template.html.j2")
+#     text_content = render_email_template(articles, keywords, threshold, "email_template.text.j2")
+#     _send_email(
+#         subject=email_subject,
+#         html_content=html_content,
+#         text_content=text_content,
+#         sender=SENDER,
+#         to=SEND_EMAIL_TO,
+#         smtp_server=SMTP_SERVER,
+#         smtp_port=SMTP_PORT,
+#         login=SMTP_LOGIN,
+#         password=SMTP_PASSWORD,
+#     )
 
 if __name__ == "__main__":
     articles = [
