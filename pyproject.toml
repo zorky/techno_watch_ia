@@ -21,6 +21,8 @@ dependencies = [
     "scikit-learn>=1.7.1",
     "sentence-transformers>=5.1.0",
     "ipython>=9.5.0",
+    "grandalf>=0.8",
+    "matplotlib>=3.10.6",
 ]
 
 [tool.uv.sources]

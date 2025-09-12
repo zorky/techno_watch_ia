@@ -73,7 +73,7 @@ from read_opml import parse_opml_to_rss_list
 
 from bs4 import BeautifulSoup
 
-from core import measure_time
+from core import measure_time, argscli
 
 # =========================
 # Configuration du modèle LLM et configurations recherche
@@ -298,11 +298,11 @@ Résumé :"""
 
     # **Résumé :**"""
 
-
+@measure_time
 def summarize_article(title, content):    
     prompt = set_prompt("IA, ingénieurie logicielle et cybersécurité", title, content)
 
-    if args.debug:
+    if argscli.debug:
         logger.debug(
             Fore.MAGENTA
             + "--- PROMPT ENVOYÉ AU LLM ---\n"
@@ -312,7 +312,7 @@ def summarize_article(title, content):
     # Appel au LLM
     result = llm.invoke(prompt)
 
-    if args.debug:
+    if argscli.debug:
         logger.debug(
             Fore.MAGENTA
             + "--- RÉPONSE BRUTE DU LLM ---\n"
@@ -433,19 +433,6 @@ def fetch_rss_articles(rss_urls: list[str], max_age_days: int = 10):
     logger.debug(f"{len(articles)} articles récents récupérés")
     return articles
 
-
-def filter_articles_by_keywords(articles, keywords):
-    filtered = []
-    for article in articles:
-        if any(
-            k.lower() in article["title"].lower()
-            or k.lower() in article["summary"].lower()
-            for k in keywords
-        ):
-            filtered.append(article)
-    logger.debug(f"{len(filtered)} articles après filtrage")
-    return filtered
-
 # =========================
 # Nœuds du graphe
 # =========================
@@ -461,9 +448,6 @@ def fetch_node(state: RSSState) -> RSSState:
 
 def filter_node(state: RSSState) -> RSSState:
     logger.info("🔍 Filtrage des articles par mots-clés...")
-
-    # filtered = filter_articles_by_keywords(state.articles, state.keywords)
-    # logger.info(f"{len(filtered)} articles correspondent aux mots-clés")
 
     filtered = filter_articles_with_faiss(
         state.articles, state.keywords, threshold=THRESHOLD_SEMANTIC_SEARCH
@@ -557,12 +541,35 @@ def get_rss_urls():
     return [feed.lien_rss for feed in rss_list_opml]
 
 def _show_graph(graph):
-    from IPython.display import Image, display
-    display(Image(graph.get_graph().draw_mermaid_png()))
+    """Affichage le graphe / automate LangGraph qui est utilisé"""
+    def _get_graph(_graph):
+        return _graph.get_graph()
+    
+    def _display_graph_matplot(_graph):
+        import matplotlib.pyplot as plt
+        import matplotlib.image as mpimg
+        import io
+         
+        png_data = _get_graph(_graph).draw_mermaid_png()
+        img = mpimg.imread(io.BytesIO(png_data), format='PNG')
+        plt.imshow(img)
+        plt.axis('off')
+        plt.show()
+        plt.pause(0.001)
+
+    def _display_graph_ascii(_graph):
+        print(_get_graph(_graph).draw_ascii())
+
+    def _display_device(_graph):
+        from IPython.display import Image, display
+        display(Image(_get_graph(_graph).draw_mermaid_png()))    
+
     try:
-        display(Image(graph.get_graph().draw_mermaid_png()))
+        # _display_graph_matplot(graph)
+        _display_graph_ascii(graph)
     except Exception as e:
         logger.error(f"{e}")        
+        
 
 # =========================
 # Main
@@ -576,7 +583,9 @@ def main():
     )
     rss_urls = get_rss_urls()
     agent = make_graph()
-    # _show_graph(agent)
+    if argscli.debug:
+        logger.info(f"🤖 L'automate déroulé :")
+        _show_graph(agent)
     state = RSSState(
         rss_urls=rss_urls,
         keywords=FILTER_KEYWORDS

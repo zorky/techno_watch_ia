@@ -11,7 +11,7 @@ parser = argparse.ArgumentParser(description="Agent RSS avec résumés LLM")
 parser.add_argument(
     "--debug", action="store_true", help="Active le mode debug détaillé"
 )
-args = parser.parse_args()
+argscli = parser.parse_args()
 
 # =========================
 # Configuration du logging
@@ -49,7 +49,7 @@ handler = logging.StreamHandler()
 handler.setFormatter(formatter)
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
+logger.setLevel(logging.DEBUG if argscli.debug else logging.INFO)
 logger.addHandler(handler)
 logger.propagate = False
 
