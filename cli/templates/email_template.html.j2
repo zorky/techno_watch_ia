@@ -5,13 +5,12 @@
 </head>
 <body>
     <h2>Veille Techno - Résumé du {{ date }}</h2>
-    <h3>{{articles|length}} articles filtrés et résumés</h3>
+    <h3>{{articles|length}} articles filtrés et résumés - mots clés : {{keywords | join(', ')}}</h3>
     {% for article in articles %}
     <div style="margin-bottom: 20px; border: 1px solid #ddd; padding: 10px;">
         <h3><a href="{{ article.link }}">🔗 {{ article.title }}</a></h3>
         {# <p><strong>Source:</strong> {{ article.source }}</p> #}
-        <p>📰 {{ article.summary }}</p>
-        {# <p><strong>Mots-clés:</strong> {{ article.keywords|join(', ') }}</p> #}
+        <p>📰 {{ article.summary | replace('\n', '<br>') | safe }}</p>    
     </div>
     {% endfor %}
 </body>

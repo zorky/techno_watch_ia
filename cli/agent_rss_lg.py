@@ -566,9 +566,10 @@ def output_node(state: RSSState) -> RSSState:
     return state
 
 def send_articles(state: RSSState):
-    from send_articles_email import send_watch_articles
+    from send_articles_email import send_watch_articles    
     logger.info(f"Envoi de {len(state.summaries)} articles")
-    send_watch_articles(state.summaries)
+    send_watch_articles(articles=state.summaries,
+                        keywords=state.keywords)
     
 # =========================
 # Construction du graphe : noeuds (nodes) et transitions (edges)

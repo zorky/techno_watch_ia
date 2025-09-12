@@ -22,10 +22,10 @@ SEND_EMAIL_TO = os.getenv("SEND_EMAIL_TO", "jane.do@domain.ntld")
 # Rendu du template Jinja2
 # =========================
 
-def render_email_template(articles: list[dict], template_name: str) -> str:
+def render_email_template(articles: list[dict], keywords: list[str], template_name: str, /) -> str:
     env = Environment(loader=FileSystemLoader("templates"))
     template = env.get_template(template_name)
-    return template.render(articles=articles, date=datetime.now().strftime("%d/%m/%Y"))
+    return template.render(articles=articles, keywords=keywords, date=datetime.now().strftime("%d/%m/%Y"))
 
 # =========================
 # Envoi du mail
@@ -58,11 +58,11 @@ def _send_email(
         server.login(login, password)
         server.sendmail(sender, to, msg.as_string())
 
-def send_watch_articles(articles):
+def send_watch_articles(articles, keywords: list[str] = None):
     current_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     email_subject = f"[VEILLE] Revue de veille techno du {current_date}"
-    html_content = render_email_template(articles, "email_template.html.j2")
-    text_content = render_email_template(articles, "email_template.text.j2")
+    html_content = render_email_template(articles, keywords, "email_template.html.j2")
+    text_content = render_email_template(articles, keywords , "email_template.text.j2")
     _send_email(
         subject=email_subject,
         html_content=html_content,
