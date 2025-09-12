@@ -179,19 +179,20 @@ llm = init_llm_chat()
 
 def get_device_cpu_gpu_info():
     import torch
-
     if torch.cuda.is_available():
-        logger.info(Fore.GREEN + f"GPU disponible : {torch.cuda.get_device_name(0)}")
-    else:
-        logger.info(Fore.RED + "Aucun GPU disponible, utilisation du CPU.")
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    return device
+        gpu_name = torch.cuda.get_device_name(0)
+        logger.info(Fore.GREEN + f"GPU disponible : {gpu_name}")
+        return "cuda"    
+    logger.info(Fore.YELLOW + "Aucun GPU disponible, utilisation du CPU.")    
+    return "cpu"
+
+DEVICE_TYPE = get_device_cpu_gpu_info()
 
 def init_sentence_model():
-    logger.info(Fore.GREEN + f"Init SentenceTransformer {MODEL_EMBEDDINGS}")
-    return SentenceTransformer(MODEL_EMBEDDINGS, device=get_device_cpu_gpu_info())
-    # return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=device)  # bon compromis pour le français/anglais
-    # return SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=device)  # Optimisé pour la similarité
+    logger.info(Fore.GREEN + f"Init SentenceTransformer {MODEL_EMBEDDINGS} sur {DEVICE_TYPE}")
+    return SentenceTransformer(MODEL_EMBEDDINGS, device=DEVICE_TYPE)
+    # return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=DEVICE_TYPE)  # bon compromis pour le français/anglais
+    # return SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=DEVICE_TYPE)  # Optimisé pour la similarité
 
 model = init_sentence_model()
 
