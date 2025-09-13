@@ -156,6 +156,26 @@ model = init_sentence_model()
 # Fonctions utilitaires
 # =========================
 
+def preprocess_text(text):
+    from nltk.stem import WordNetLemmatizer
+    from nltk.tokenize import word_tokenize
+    from nltk.corpus import stopwords
+    import nltk
+    import string
+
+    nltk.download('punkt_tab')
+    nltk.download('stopwords')
+    nltk.download('wordnet')
+
+    # Tokenization
+    tokens = word_tokenize(text.lower())
+    # Suppression des stopwords et ponctuation
+    tokens = [t for t in tokens if t not in stopwords.words('french') and t not in string.punctuation]
+    # Lemmatisation
+    lemmatizer = WordNetLemmatizer()
+    tokens = [lemmatizer.lemmatize(t) for t in tokens]
+    return " ".join(tokens)
+
 @measure_time
 def filter_articles_with_faiss(
     articles,
@@ -188,12 +208,8 @@ def filter_articles_with_faiss(
             )
             keyword_embeddings = keyword_embeddings.cpu().numpy()                        
             faiss.normalize_L2(keyword_embeddings)
-            index = faiss.IndexFlatIP(keyword_embeddings.shape[1])
+            index = faiss.IndexFlatIP(keyword_embeddings.shape[1]) # Produit scalaire équivalent similarité cos
             index.add(keyword_embeddings)
-
-            # if get_device_cpu_gpu_info() == "cuda": # nécessite faiss-gpu
-            #     res = faiss.StandardGpuResources()
-            #     index = faiss.index_cpu_to_gpu(res, 0, index)
 
             faiss.write_index(index, index_path)
             return index
@@ -206,7 +222,8 @@ def filter_articles_with_faiss(
         text = f"{article['title']} {article['summary']}".strip()
         if not text:
             continue  # Sauter les articles sans contenu
-
+        # cleaned_text = preprocess_text(text)
+        
         article_embedding = model.encode(
             [text], convert_to_tensor=True, show_progress_bar=False
         )
@@ -214,7 +231,7 @@ def filter_articles_with_faiss(
         faiss.normalize_L2(article_embedding)  # Normaliser l'embedding de l'article
 
         # Recherche
-        similarities, indices = index.search(article_embedding, k=len(keywords))
+        similarities, indices = index.search(article_embedding, k=len(keywords)) # k = top N mot-clé le plus proche
         max_similarity = similarities[0].max()  # La similarité est déjà entre 0 et 1
 
         if max_similarity >= threshold:
