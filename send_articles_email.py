@@ -59,7 +59,9 @@ def _send_email(
     msg.attach(part2)
 
     with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.ehlo()
         server.starttls()
+        server.ehlo()
         server.login(login, password)
         server.sendmail(sender, to, msg.as_string())
 

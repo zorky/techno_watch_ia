@@ -91,3 +91,18 @@ $ python main_agent_rss.py --debug
 ## L'automate exécuté 
 
 ![Schéma généré](schema-graphe.png)
+
+## Gmail SMTP
+
+Si Google gmail est utilisé pour envoyé le mail des résumé, un mot de passe application doit être créé 
+
+Sinon le login / mot de passe de user@gmail.com provoquera une erreur du type
+
+`smtplib.SMTPAuthenticationError: (534, b'5.7.9 Application-specific password required. For more information, go to\n5.7.9  https://support.google.com/mail/?p=InvalidSecondFactor ffacd0b85a97d-3e8c7375fb7sm2117460f8f.14 - gsmtp')`
+
+> Page d'aide : https://support.google.com/accounts/answer/185833?visit_id=638933697167636567-786859144&p=InvalidSecondFactor&rd=1 
+
+> Configurer un mot de passe application : https://myaccount.google.com/apppasswords 
+
+Ce mot de passe application sera mis dans la variable `SMTP_PASSWORD` du .env
+
