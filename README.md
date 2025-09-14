@@ -12,6 +12,19 @@ Process déroulé :
 - Résume les articles filtrés
 - Envoi l'ensemble par mail
 
+# Techno Watch Tool
+
+Objective: Develop an agent using LangGraph to perform tech watch using RSS feeds.
+Process
+
+- Reads an OPML file containing RSS/Atom feeds
+- Fetches and parses the RSS/Atom feed content
+- Indexes the content using a vector database
+- Searches for predefined (vectorized) keywords in the content
+- Retrieves articles that meet a predefined similarity threshold (cosine similarity scoring)
+- Summarizes the filtered articles
+- Sends the results by email
+
 ## Environnement
 
 ### uv
