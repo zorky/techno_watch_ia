@@ -9,7 +9,7 @@
     <h5>Mots clés : {{keywords | join(', ')}} sur un seuil >= {{threshold}}</h5>
     {% for article in articles %}
         <div style="margin-bottom: 20px; border: 1px solid #ddd; padding: 10px;">
-            <h3><a href="{{ article.link }}">🔗 {{ article.title }}</a> - {{ article.scoring }}</h3>            
+            <h3><a href="{{ article.link }}">🔗 {{ article.title }}</a> - {{ article.score }}</h3>            
             <p>📰 {{ article.summary | replace('\n', '<br>') | safe }}</p>    
         </div>
     {% endfor %}

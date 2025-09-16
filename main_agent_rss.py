@@ -244,10 +244,10 @@ def filter_articles_with_faiss(
             logger.info(
                 f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']} {article['link']}"
             )
-            # article['scoring'] = round(max_similarity, 2)
-            article['scoring'] = f"{max_similarity * 100:.1f} %"
+            # article['score'] = round(max_similarity, 2)
+            article['score'] = f"{max_similarity * 100:.1f} %"
             logger.info(
-                f"{article['title']} -> {article['scoring']}"
+                f"{article['title']} -> {article['score']}"
             )
             filtered.append(article)
 
@@ -404,7 +404,7 @@ def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_f
                 "summary": summary,
                 "link": link,
                 "published": published_time.isoformat() if published_time else None,
-                "scoring": "0 %"
+                "score": "0 %"
             }
         )
         recent_in_feed += 1
@@ -457,7 +457,7 @@ def fetch_node(state: RSSState) -> RSSState:
 
     articles = fetch_rss_articles(state.rss_urls, MAX_DAYS)
     logger.info(f"{len(articles)} articles récupérés")
-    logger.info(f"{articles[0]['title']} {articles[0]['scoring']}")
+    logger.info(f"{articles[0]['title']} {articles[0]['score']}")
      
     return state.model_copy(update={"articles": articles})
 
@@ -494,7 +494,7 @@ def summarize_node(state: RSSState) -> RSSState:
                 "title": article["title"],
                 "summary": summary_text,
                 "link": article["link"],
-                "scoring": article["scoring"],
+                "score": article["score"],
                 "published": article["published"]
             }
         )
@@ -508,7 +508,7 @@ def output_node(state: RSSState) -> RSSState:
             Fore.CYAN
             + f"\n📰 {item['title']}\n"
             + Fore.CYAN
-            + f"\n📈 {item['scoring']}\n"
+            + f"\n📈 {item['score']}\n"
             + Fore.GREEN
             + f"📝 {item['summary']}\n"
             + Fore.BLUE
@@ -532,7 +532,7 @@ def send_articles(state: RSSState) -> RSSState:
     return state
 
 def save_articles(state: RSSState) -> RSSState:
-    from core import save_to_db
+    from db.db import save_to_db
     logger.info("Sauvegarde des articles résumés en DB")    
     if len(state.summaries) > 0:
         save_to_db(state.summaries)
@@ -605,7 +605,7 @@ def _show_graph(graph):
 # Main
 # =========================
 def main():
-    from core.db import init_db
+    from db.db import init_db
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")
     logger.info(
         Fore.YELLOW

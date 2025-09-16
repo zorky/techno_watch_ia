@@ -85,8 +85,8 @@ def send_watch_articles(params: EmailTemplateParams):
 if __name__ == "__main__":
     from models.emails import EmailTemplateParams
     articles = [
-        {'title': "L'IA révolutionne la médecine en 2025", 'link': 'https://domain.ntld', 'summary': 'résumé', 'scoring': '60 %'},
-        {'title': "Comment l'énergie solaire transforme les villes", 'link': 'https://domain2.ntld', 'summary': 'résumé', 'scoring': '45 %'},
+        {'title': "L'IA révolutionne la médecine en 2025", 'link': 'https://domain.ntld', 'summary': 'résumé', 'score': '60 %'},
+        {'title': "Comment l'énergie solaire transforme les villes", 'link': 'https://domain2.ntld', 'summary': 'résumé', 'score': '45 %'},
     # "Les dernières avancées en robotique industrielle",
     # "Comment l'énergie solaire transforme les villes",
     # "La cybersécurité face aux nouvelles menaces",
