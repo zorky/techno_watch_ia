@@ -1,9 +1,24 @@
+from sqlalchemy import create_engine, Column, Integer, String, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 import sqlite3
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 DB_PATH = os.getenv("DB_PATH", "techno-watch.db")
+
+#
+# SQL Alchemy
+# Configuration de la connexion
+# 
+Base = declarative_base()
+engine = create_engine(f'sqlite:///{DB_PATH}')
+Base.metadata.bind = engine
+DBSession = sessionmaker(bind=engine)
+session = DBSession()
+
+
 
 def save_to_db(summaries: list[dict]):
     """Sauvegarde les résumés dans SQLite."""        
