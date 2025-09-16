@@ -58,13 +58,13 @@ def save_to_db(summaries: list[dict]):
     with get_db() as session:        
         try:
             # validation Pydantic
-            """
-            pydantic_core._pydantic_core.ValidationError: 1 validation error for ArticleModel
-            date
-            Field required [type=missing, input_value={'title': 'DjangoCon US\x...: '2025-09-07T22:00:00'}, input_type=dict]
-                For further information visit https://errors.pydantic.dev/2.11/v/missing
+            # """
+            # pydantic_core._pydantic_core.ValidationError: 1 validation error for ArticleModel
+            # date
+            # Field required [type=missing, input_value={'title': 'DjangoCon US\x...: '2025-09-07T22:00:00'}, input_type=dict]
+            #     For further information visit https://errors.pydantic.dev/2.11/v/missing
 
-            """
+            # """
             # validated_articles = [ArticleModel(**item) for item in summaries]
             # articles_data = [
             #     article.model_dump() for article in validated_articles
