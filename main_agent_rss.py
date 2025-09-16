@@ -494,7 +494,8 @@ def summarize_node(state: RSSState) -> RSSState:
                 "title": article["title"],
                 "summary": summary_text,
                 "link": article["link"],
-                "scoring": article["scoring"]
+                "scoring": article["scoring"],
+                "published": article["published"]
             }
         )
     return state.model_copy(update={"summaries": summaries})
@@ -511,22 +512,32 @@ def output_node(state: RSSState) -> RSSState:
             + Fore.GREEN
             + f"📝 {item['summary']}\n"
             + Fore.BLUE
-            + f"🔗 {item['link']}"
+            + f"🔗 {item['link']}\n"
+            + f"⏱️ {item['published']}"
         )
     return state
 
-def send_articles(state: RSSState):
-    logger.info("Envoi mail des articles")
+def send_articles(state: RSSState) -> RSSState:
     from send_articles_email import send_watch_articles
     from models.emails import EmailTemplateParams    
+    logger.info("Envoi mail des articles")
     logger.info(f"Envoi de {len(state.summaries)} articles")
-    _params_mail = EmailTemplateParams(
-        articles=state.summaries,
-        keywords=state.keywords,
-        threshold=THRESHOLD_SEMANTIC_SEARCH
-    )
-    send_watch_articles(_params_mail)    
-    
+    if len(state.summaries) > 0:
+        _params_mail = EmailTemplateParams(
+            articles=state.summaries,
+            keywords=state.keywords,
+            threshold=THRESHOLD_SEMANTIC_SEARCH
+        )
+        send_watch_articles(_params_mail)    
+    return state
+
+def save_articles(state: RSSState) -> RSSState:
+    from core import save_to_db
+    logger.info("Sauvegarde des articles résumés en DB")    
+    if len(state.summaries) > 0:
+        save_to_db(state.summaries)
+    return state
+
 # =========================
 # Construction du graphe : noeuds (nodes) et transitions (edges)
 # fetch -> filter -> summarize -> output
@@ -537,13 +548,15 @@ def make_graph():
     graph.add_node("filter", RunnableLambda(filter_node))
     graph.add_node("summarize", RunnableLambda(summarize_node))
     graph.add_node("displayoutput", RunnableLambda(output_node))
+    graph.add_node("savedbsummaries", RunnableLambda(save_articles))
     graph.add_node("sendsummaries", RunnableLambda(send_articles))        
 
     graph.set_entry_point("fetch")
     graph.add_edge("fetch", "filter")
     graph.add_edge("filter", "summarize")
-    graph.add_edge("summarize", "displayoutput")
-    graph.add_edge("displayoutput", "sendsummaries")
+    graph.add_edge("summarize", "displayoutput")    
+    graph.add_edge("displayoutput", "savedbsummaries")
+    graph.add_edge("savedbsummaries", "sendsummaries")
 
     return graph.compile()
 
@@ -592,17 +605,20 @@ def _show_graph(graph):
 # Main
 # =========================
 def main():
+    from core.db import init_db
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")
     logger.info(
         Fore.YELLOW
         + Style.BRIGHT
         + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE} sur les {MAX_DAYS} derniers jours"
     )
-    rss_urls = get_rss_urls()
+    logger.info(Fore.YELLOW + f"Initialisation DB")
+    init_db()    
     agent = make_graph()
     if argscli.debug:
         logger.info(f"🤖 LangGraph déroulera cet automate...")
         _show_graph(agent)
+    rss_urls = get_rss_urls()        
     state = RSSState(
         rss_urls=rss_urls,
         keywords=FILTER_KEYWORDS

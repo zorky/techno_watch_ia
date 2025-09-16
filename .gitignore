@@ -1,5 +1,6 @@
 *.opml
 *.faiss
+*.db
 
 # my.opml 
 # keywords_index.faiss
