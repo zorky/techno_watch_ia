@@ -1,10 +1,11 @@
 from sqlalchemy import create_engine, Column, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from contextlib import contextmanager
 import sqlite3
 import os
 from dotenv import load_dotenv
-from models.articles_db import Article
+from models.article import Article, ArticleModel
 
 load_dotenv()
 DB_PATH = os.getenv("DB_PATH", "techno-watch.db")
@@ -17,14 +18,23 @@ engine = create_engine(f'sqlite:///{DB_PATH}')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
-
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 #
 # Fonctions utilitaires DB
 # 
+@contextmanager
+def get_db():
+    """Générateur de session SQLAlchemy avec gestion automatique pour le close()."""
+    session = SessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+
 def read_articles(date: str = None):
     """Lit les articles résumés qui ont été retenus pour la veille techno"""
     from db.db import session
-    from models.articles_db import Article    
+    from models.article import Article    
     if date:
         articles = session.query(Article).filter(Article.date.like(f"%{date}%")).all()
     else:
@@ -32,26 +42,49 @@ def read_articles(date: str = None):
     return articles
 
 def save_to_db(summaries: list[dict]):
-    """Sauvegarde les résumés dans la base de données avec SQLAlchemy."""
-    from sqlalchemy.orm import sessionmaker
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = SessionLocal()
-    try:
-        for item in summaries:
-            article = Article(
-                title=item["title"],
-                link=item["link"],
-                summary=item["summary"],
-                score=item["score"],
-                date=item["published"]
-            )
-            session.add(article)
-        session.commit()
-    except Exception as e:
-        session.rollback()
-        raise e
-    finally:
-        session.close()
+    """
+    Sauvegarde les articles en base avec validation Pydantic avec insertion en bulk.
+
+    Args:
+        summaries: Liste de dictionnaires contenant les articles à insérer
+
+    Raises:
+        ValueError: Si la validation Pydantic échoue
+        Exception: Pour les erreurs de base de données
+    """
+    # from sqlalchemy.orm import sessionmaker
+    # SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    # session = SessionLocal()
+    with get_db() as session:        
+        try:
+            # validation Pydantic
+            """
+            pydantic_core._pydantic_core.ValidationError: 1 validation error for ArticleModel
+            date
+            Field required [type=missing, input_value={'title': 'DjangoCon US\x...: '2025-09-07T22:00:00'}, input_type=dict]
+                For further information visit https://errors.pydantic.dev/2.11/v/missing
+
+            """
+            # validated_articles = [ArticleModel(**item) for item in summaries]
+            # articles_data = [
+            #     article.model_dump() for article in validated_articles
+            # ]
+            # session.bulk_insert_mappings(Article, articles_data)
+            # session.commit()
+            ## session.bulk_insert_mappings(Article, [
+            ##     article.model_dump() for article in validated_articles
+            ## ])
+            session.bulk_insert_mappings(Article, [{
+                "title": item["title"],
+                "link": item["link"],
+                "summary": item["summary"],
+                "score": item["score"],
+                "date": item["published"]
+            } for item in summaries])
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e            
 
 def init_db():
     """Initialise la base de données SQLite."""
