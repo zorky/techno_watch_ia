@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text
+from sqlalchemy import create_engine, and_
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
@@ -57,6 +57,22 @@ def save_to_db(summaries: list[dict]):
     # session = SessionLocal()
     with get_db() as session:        
         try:
+            for item in summaries:
+                # existing_article = session.query(Article).filter_by(title=item["title"]).first()
+                existing_article = session.query(Article).filter(and_(
+                            Article.title == item["title"],
+                            Article.date == item["published"])).first()                
+                if not existing_article:
+                    article = Article(
+                        title=item["title"],
+                        link=item["link"],
+                        summary=item["summary"],
+                        score=item["score"],
+                        date=item["published"]
+                    )
+                    session.add(article)
+            session.commit()
+
             # validation Pydantic
             # """
             # pydantic_core._pydantic_core.ValidationError: 1 validation error for ArticleModel
@@ -74,14 +90,14 @@ def save_to_db(summaries: list[dict]):
             ## session.bulk_insert_mappings(Article, [
             ##     article.model_dump() for article in validated_articles
             ## ])
-            session.bulk_insert_mappings(Article, [{
-                "title": item["title"],
-                "link": item["link"],
-                "summary": item["summary"],
-                "score": item["score"],
-                "date": item["published"]
-            } for item in summaries])
-            session.commit()
+            # session.bulk_insert_mappings(Article, [{
+            #     "title": item["title"],
+            #     "link": item["link"],
+            #     "summary": item["summary"],
+            #     "score": item["score"],
+            #     "date": item["published"]
+            # } for item in summaries])
+            # session.commit()
         except Exception as e:
             session.rollback()
             raise e            
