@@ -2,6 +2,7 @@ from sqlalchemy import create_engine, and_
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
+import datetime
 import sqlite3
 import os
 from dotenv import load_dotenv
@@ -36,14 +37,15 @@ def read_articles(date: str = None):
     from db.db import session
     from models.article import Article    
     if date:
-        articles = session.query(Article).filter(Article.date.like(f"%{date}%")).all()
+        articles = session.query(Article).filter(Article.published.like(f"%{date}%")).all()
     else:
-        articles = session.query(Article).order_by(Article.date.desc()).all()
+        articles = session.query(Article).order_by(Article.published.desc()).all()
     return articles
 
 def save_to_db(summaries: list[dict]):
     """
     Sauvegarde les articles en base avec validation Pydantic avec insertion en bulk.
+    Les articles n'ayant pas déjà été insérés le sont : filtre sur titre et date
 
     Args:
         summaries: Liste de dictionnaires contenant les articles à insérer
@@ -61,15 +63,16 @@ def save_to_db(summaries: list[dict]):
                 # existing_article = session.query(Article).filter_by(title=item["title"]).first()
                 existing_article = session.query(Article).filter(and_(
                             Article.title == item["title"],
-                            Article.date == item["published"])).first()                
+                            Article.published == item["published"])).first()                
                 if not existing_article:
                     article = Article(
                         title=item["title"],
                         link=item["link"],
                         summary=item["summary"],
                         score=item["score"],
-                        date=item["published"]
+                        published=item["published"]
                     )
+                    article.dt_updated = datetime.utcnow()
                     session.add(article)
             session.commit()
 
@@ -109,11 +112,13 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS articles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            dt_created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            dt_updated TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
             title TEXT NOT NULL,
             link TEXT NOT NULL,
             summary TEXT NOT NULL,
             score TEXT NOT NULL,
-            date TEXT NOT NULL
+            published TEXT NOT NULL
         )
     """)
     conn.commit()
