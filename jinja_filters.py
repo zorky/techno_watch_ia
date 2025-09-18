@@ -1,4 +1,5 @@
 from jinja2 import Environment
+from markupsafe import Markup
 from datetime import datetime, timezone
 
 #
@@ -22,10 +23,18 @@ def format_local_datetime(utc_datetime, tz: str = "Europe/Paris"):
     local_datetime = utc_datetime.replace(tzinfo=timezone.utc).astimezone(local_tz)
     return local_datetime.strftime('%d/%m/%Y à %H:%M')
 
+def nl2br(value):
+    """Convertit les retours chariots en <br>."""
+    if value is None:
+        return ""
+    return Markup(value.replace('\n', '<br>\n'))
+
+
 JINJA_FILTERS = {
     'format_local_datetime': format_local_datetime,
     'format_date': format_date,
-    'truncate': lambda s, length: s[:length] + '...' if len(s) > length else s
+    'truncate': lambda s, length: s[:length] + '...' if len(s) > length else s,
+    'nl2br': nl2br
 }
 
 def register_jinja_filters(env: Environment):
