@@ -12,7 +12,7 @@
         <p class="subtitle">Les dernières actualités</p>
     </header>
     <form method="get">
-        <label for="date">Filtrer par date :</label>
+        <label for="date">Filtrer par date de publication :</label>
         <input type="date" id="date" name="date">
         <button type="submit"><i class="fas fa-filter"></i> Filtrer</button>
     </form>
@@ -22,7 +22,7 @@
             <h2><i class="fas fa-link"></i>
                 <a href="{{ article.link }}">{{ article.title }}</a>                
             </h2>
-            <h3><small>article publié le {{ article.published | format_date }} - résumé du {{ article.dt_created.strftime('%d/%m/%Y à %H:%M') }} - score: {{ article.score }}</small></h3>
+            <h3><small>article publié le {{ article.published | format_date }} - résumé du {{ article.dt_created | format_local_datetime }} - score: {{ article.score }}</small></h3>
             <p><i class="fas fa-newspaper"></i> {{ article.summary }}</p>
         </li>
         {% endfor %}
