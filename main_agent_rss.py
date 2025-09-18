@@ -221,7 +221,7 @@ def filter_articles_with_faiss(
     for article in articles:
         text = f"{article['title']} {article['summary']}".strip()
         if not text:
-            continue  # Sauter les articles sans contenu
+            continue
         # cleaned_text = preprocess_text(text)
         
         article_embedding = model.encode(
@@ -477,6 +477,7 @@ def filter_node(state: RSSState) -> RSSState:
 
 
 def summarize_node(state: RSSState) -> RSSState:
+    from datetime import datetime, timezone
     logger.info("✏️  Résumé des articles filtrés...")
     LIMIT_ARTICLES_TO_RESUME = int(os.getenv("LIMIT_ARTICLES_TO_RESUME", -1))
     if LIMIT_ARTICLES_TO_RESUME > 0:
@@ -489,15 +490,16 @@ def summarize_node(state: RSSState) -> RSSState:
     for i, article in enumerate(articles, start=1):
         logger.info(Fore.YELLOW + f"Résumé {i}/{len(articles)} : {article['title']}")
         summary_text = summarize_article(article["title"], article["summary"])
-        summaries.append(
-            {
-                "title": article["title"],
-                "summary": summary_text,
-                "link": article["link"],
-                "score": article["score"],
-                "published": article["published"]
-            }
-        )
+        summary = {
+            "title": article["title"],
+            "summary": summary_text,
+            "link": article["link"],
+            "score": article["score"],
+            "published": article["published"],
+            "dt_created": datetime.now(timezone.utc)
+        }
+        summaries.append(summary)
+        logger.info(f"Ajout du résumé {summary}")
     return state.model_copy(update={"summaries": summaries})
 
 

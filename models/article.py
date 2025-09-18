@@ -5,7 +5,7 @@ class ArticleModel(BaseModel):
     title: str
     link: str
     summary: str
-    score: str # # ou float/int ?
+    score: str # ou float/int ?
     published: str
 
     # class Config:

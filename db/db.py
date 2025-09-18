@@ -1,19 +1,22 @@
-from sqlalchemy import create_engine, and_
+import os
+import logging
+from sqlalchemy import create_engine
 from sqlalchemy import Column, Integer, String, Text, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import event
 from contextlib import contextmanager
-# import sqlite3
-import os
 from dotenv import load_dotenv
-# from models.article import Article, ArticleModel
 from models.article import ArticleModel
 from datetime import datetime, timezone
 
 load_dotenv()
 DB_PATH = os.getenv("DB_PATH", "techno-watch.db")
+
+# from core import logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 #
@@ -74,9 +77,7 @@ def get_db():
         session.close()
 
 def read_articles(date: str = None):
-    """Lit les articles résumés qui ont été retenus pour la veille techno"""
-    # from db.db import session
-    # from models.article import Article    
+    """Lit les articles résumés qui ont été retenus pour la veille techno"""     
     with get_db() as session:
         if date:
             articles = session.query(Article).filter(Article.published.like(f"%{date}%")).all()
@@ -102,27 +103,20 @@ def save_to_db(summaries: list[dict]):
     Raises:
         ValueError: Si la validation Pydantic échoue
         Exception: Pour les erreurs de base de données
-    """
-    # from datetime import datetime
+    """    
     with get_db() as session:        
         try:            
-            articles_data = _validate_and_get_articles_summaries(summaries)  
-            session.bulk_insert_mappings(Article, articles_data)
-            session.commit()
-            # for item in summaries:                                 
-            #     existing_article = session.query(Article).filter(and_(
-            #                 Article.title == item["title"],
-            #                 Article.published == item["published"])).first()                
-            #     if not existing_article:
-            #         article = Article(
-            #             title=item["title"],
-            #             link=item["link"],
-            #             summary=item["summary"],
-            #             score=item["score"],
-            #             published=item["published"]
-            #         )                                        
-            #         session.add(article)
-            # session.commit()
+            existing = session.query(Article.title, Article.published).all()
+            existing_pairs = {(title, published) for title, published in existing}
+            new_articles = [
+                item for item in summaries
+                if (item["title"], item["published"]) not in existing_pairs
+            ]
+            if new_articles:
+                logger.info(f"Nombre de nouveaux articles {len(new_articles)}")            
+                articles_data = _validate_and_get_articles_summaries(new_articles)  
+                session.bulk_insert_mappings(Article, articles_data)
+                session.commit()            
         except Exception as e:
             session.rollback()
             raise e            

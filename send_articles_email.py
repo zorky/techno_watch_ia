@@ -6,6 +6,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
 from models.emails import EmailTemplateParams
+from jinja_filters import register_jinja_filters
 
 # =========================
 # Configuration SMTP
@@ -23,8 +24,16 @@ SEND_EMAIL_TO = os.getenv("SEND_EMAIL_TO", "jane.do@domain.ntld")
 # Rendu du template Jinja2
 # =========================
 
-def render_email_template(params: EmailTemplateParams, template_name: str, /) -> str:
-    env = Environment(loader=FileSystemLoader("templates"))
+def _set_env_render_filters():
+    env = Environment(
+        loader=FileSystemLoader("templates"),
+        autoescape=True
+    )
+    register_jinja_filters(env)
+    return env
+
+def render_email_template(params: EmailTemplateParams, template_name: str, /) -> str:    
+    env = _set_env_render_filters()
     template = env.get_template(template_name)
     threshold_str = f"{int(params.threshold * 100)}%"
     return template.render(articles=params.articles, 
