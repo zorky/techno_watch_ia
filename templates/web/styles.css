@@ -147,43 +147,41 @@ p {
     }
 }
 
-/* Style pour le conteneur du sommaire */
 .table-of-contents {
     background: white;
-    padding: 12px 15px;  /* Réduction des paddings */
-    margin-bottom: 15px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .table-of-contents h2 {
     color: #2c3e50;
-    margin-top: 0;
-    margin-bottom: 8px;  /* Réduction de la marge basse */
-    font-size: 1.2em;    /* Légère réduction de la taille */
+    margin: 0 0 6px 0;
+    font-size: 1.1em;
     border-bottom: 1px solid #eee;
-    padding-bottom: 6px; /* Réduction du padding */
+    padding-bottom: 4px;
 }
 
 .table-of-contents ol {
-    padding-left: 18px;  /* Réduction légère */
+    padding-left: 20px;
     margin: 0;
-    line-height: 1.2;    /* Réduction de l'interligne */
+    line-height: 1.1;
 }
 
 .table-of-contents li {
-    margin: 4px 0;       /* Réduction des marges verticales (décommenté et modifié) */
-    padding: 2px 0;      /* Ajout d'un léger padding vertical */
+    margin: 2px 0;
+    padding: 1px 0;
 }
 
 .table-of-contents a {
     color: #3498db;
     text-decoration: none;
     transition: all 0.2s ease;
-    font-size: 0.95em;   /* Légère réduction de la taille de police */
-    display: block;      /* Pour occuper toute la largeur */
-    padding: 3px 0;      /* Padding vertical léger */
-    line-height: 1.3;    /* Ajustement de la hauteur de ligne */
+    font-size: 0.9em;
+    display: block;
+    padding: 2px 0;
+    line-height: 1.2;
 }
 
 .table-of-contents a:hover {
@@ -191,44 +189,9 @@ p {
     text-decoration: underline;
 }
 
-/* Style pour les numéros de la liste */
-.table-of-contents ol {
-    counter-reset: toc-counter;
-}
-
-.table-of-contents li {
-    counter-increment: toc-counter;
-    position: relative;
-    padding-left: 25px;  /* Espace pour le numéro */
-}
-
-.table-of-contents li:before {
-    /* content: counter(toc-counter); */
-    position: absolute;
-    left: 0;
-    color: #7f8c8d;
-    font-weight: bold;
-    text-align: right;
-    width: 20px;
-}
-
-/* Suppression des marges inutiles sur les éléments de liste */
-.table-of-contents li:first-child {
-    margin-top: 0;
-}
-
-.table-of-contents li:last-child {
-    margin-bottom: 0;
-}
-
-/* Style pour les éléments cibles (optionnel) */
 li:target {
     background-color: #f8f9fa;
-    border-left: 3px solid #3498db;
-    padding-left: 17px;
+    border-left: 2px solid #3498db;
+    padding-left: 15px;
 }
 
-/* Animation fluide */
-html {
-    scroll-behavior: smooth;
-}
