@@ -101,6 +101,14 @@ ou pour obtenir plus d'informations
 $ python main_agent_rss.py --debug
 ```
 
+## Interface UI pour les articles résumés
+
+```bash
+$ uvicorn web:app --reload
+```bash
+
+Sur http://127.0.0.1:8000/
+
 ## L'automate exécuté 
 
 ![Schéma généré](schema-graphe.png)

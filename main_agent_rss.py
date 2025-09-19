@@ -221,7 +221,7 @@ def filter_articles_with_faiss(
     for article in articles:
         text = f"{article['title']} {article['summary']}".strip()
         if not text:
-            continue  # Sauter les articles sans contenu
+            continue
         # cleaned_text = preprocess_text(text)
         
         article_embedding = model.encode(
@@ -244,10 +244,10 @@ def filter_articles_with_faiss(
             logger.info(
                 f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']} {article['link']}"
             )
-            # article['scoring'] = round(max_similarity, 2)
-            article['scoring'] = f"{max_similarity * 100:.1f} %"
+            # article['score'] = round(max_similarity, 2)
+            article['score'] = f"{max_similarity * 100:.1f} %"
             logger.info(
-                f"{article['title']} -> {article['scoring']}"
+                f"{article['title']} -> {article['score']}"
             )
             filtered.append(article)
 
@@ -404,7 +404,7 @@ def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_f
                 "summary": summary,
                 "link": link,
                 "published": published_time.isoformat() if published_time else None,
-                "scoring": "0 %"
+                "score": "0 %"
             }
         )
         recent_in_feed += 1
@@ -457,7 +457,7 @@ def fetch_node(state: RSSState) -> RSSState:
 
     articles = fetch_rss_articles(state.rss_urls, MAX_DAYS)
     logger.info(f"{len(articles)} articles récupérés")
-    logger.info(f"{articles[0]['title']} {articles[0]['scoring']}")
+    logger.info(f"{articles[0]['title']} {articles[0]['score']}")
      
     return state.model_copy(update={"articles": articles})
 
@@ -477,6 +477,7 @@ def filter_node(state: RSSState) -> RSSState:
 
 
 def summarize_node(state: RSSState) -> RSSState:
+    from datetime import datetime, timezone
     logger.info("✏️  Résumé des articles filtrés...")
     LIMIT_ARTICLES_TO_RESUME = int(os.getenv("LIMIT_ARTICLES_TO_RESUME", -1))
     if LIMIT_ARTICLES_TO_RESUME > 0:
@@ -489,14 +490,16 @@ def summarize_node(state: RSSState) -> RSSState:
     for i, article in enumerate(articles, start=1):
         logger.info(Fore.YELLOW + f"Résumé {i}/{len(articles)} : {article['title']}")
         summary_text = summarize_article(article["title"], article["summary"])
-        summaries.append(
-            {
-                "title": article["title"],
-                "summary": summary_text,
-                "link": article["link"],
-                "scoring": article["scoring"]
-            }
-        )
+        summary = {
+            "title": article["title"],
+            "summary": summary_text,
+            "link": article["link"],
+            "score": article["score"],
+            "published": article["published"],
+            "dt_created": datetime.now(timezone.utc)
+        }
+        summaries.append(summary)
+        logger.info(f"Ajout du résumé {summary}")
     return state.model_copy(update={"summaries": summaries})
 
 
@@ -507,26 +510,36 @@ def output_node(state: RSSState) -> RSSState:
             Fore.CYAN
             + f"\n📰 {item['title']}\n"
             + Fore.CYAN
-            + f"\n📈 {item['scoring']}\n"
+            + f"\n📈 {item['score']}\n"
             + Fore.GREEN
             + f"📝 {item['summary']}\n"
             + Fore.BLUE
-            + f"🔗 {item['link']}"
+            + f"🔗 {item['link']}\n"
+            + f"⏱️ {item['published']}"
         )
     return state
 
-def send_articles(state: RSSState):
-    logger.info("Envoi mail des articles")
+def send_articles(state: RSSState) -> RSSState:
     from send_articles_email import send_watch_articles
     from models.emails import EmailTemplateParams    
+    logger.info("Envoi mail des articles")
     logger.info(f"Envoi de {len(state.summaries)} articles")
-    _params_mail = EmailTemplateParams(
-        articles=state.summaries,
-        keywords=state.keywords,
-        threshold=THRESHOLD_SEMANTIC_SEARCH
-    )
-    send_watch_articles(_params_mail)    
-    
+    if len(state.summaries) > 0:
+        _params_mail = EmailTemplateParams(
+            articles=state.summaries,
+            keywords=state.keywords,
+            threshold=THRESHOLD_SEMANTIC_SEARCH
+        )
+        send_watch_articles(_params_mail)    
+    return state
+
+def save_articles(state: RSSState) -> RSSState:
+    from db.db import save_to_db
+    logger.info("Sauvegarde des articles résumés en DB")    
+    if len(state.summaries) > 0:
+        save_to_db(state.summaries)
+    return state
+
 # =========================
 # Construction du graphe : noeuds (nodes) et transitions (edges)
 # fetch -> filter -> summarize -> output
@@ -537,13 +550,15 @@ def make_graph():
     graph.add_node("filter", RunnableLambda(filter_node))
     graph.add_node("summarize", RunnableLambda(summarize_node))
     graph.add_node("displayoutput", RunnableLambda(output_node))
+    graph.add_node("savedbsummaries", RunnableLambda(save_articles))
     graph.add_node("sendsummaries", RunnableLambda(send_articles))        
 
     graph.set_entry_point("fetch")
     graph.add_edge("fetch", "filter")
     graph.add_edge("filter", "summarize")
-    graph.add_edge("summarize", "displayoutput")
-    graph.add_edge("displayoutput", "sendsummaries")
+    graph.add_edge("summarize", "displayoutput")    
+    graph.add_edge("displayoutput", "savedbsummaries")
+    graph.add_edge("savedbsummaries", "sendsummaries")
 
     return graph.compile()
 
@@ -592,17 +607,20 @@ def _show_graph(graph):
 # Main
 # =========================
 def main():
+    from db.db import init_db
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")
     logger.info(
         Fore.YELLOW
         + Style.BRIGHT
         + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE} sur les {MAX_DAYS} derniers jours"
     )
-    rss_urls = get_rss_urls()
+    logger.info(Fore.YELLOW + f"Initialisation DB")
+    init_db()    
     agent = make_graph()
     if argscli.debug:
         logger.info(f"🤖 LangGraph déroulera cet automate...")
         _show_graph(agent)
+    rss_urls = get_rss_urls()        
     state = RSSState(
         rss_urls=rss_urls,
         keywords=FILTER_KEYWORDS

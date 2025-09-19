@@ -5,15 +5,6 @@ import argparse
 from colorama import Fore, Style, init
 
 # =========================
-# Parsing des arguments CLI
-# =========================
-parser = argparse.ArgumentParser(description="Agent RSS avec résumés LLM")
-parser.add_argument(
-    "--debug", action="store_true", help="Active le mode debug détaillé"
-)
-argscli = parser.parse_args()
-
-# =========================
 # Configuration du logging
 # Couleurs
 # =========================
@@ -49,9 +40,24 @@ handler = logging.StreamHandler()
 handler.setFormatter(formatter)
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG if argscli.debug else logging.INFO)
+try:
+    logger.setLevel(logging.DEBUG if argscli.debug else logging.INFO)
+except:
+    ...
 logger.addHandler(handler)
 logger.propagate = False
+
+# =========================
+# Parsing des arguments CLI
+# =========================
+try:
+    parser = argparse.ArgumentParser(description="Agent RSS avec résumés LLM")
+    parser.add_argument(
+        "--debug", action="store_true", help="Active le mode debug détaillé"
+    )
+    argscli = parser.parse_args()
+except Exception as e:
+    ...
 
 def measure_time(func):
     @wraps(func)
