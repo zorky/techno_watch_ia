@@ -174,7 +174,7 @@ def _validate_and_get_articles_summaries(summaries):
     ]  
     return articles_data
 
-def save_to_fts(summaries: list[Article]):
+def save_to_fts(summaries: list[dict]):
     """
     Sauvegarde les articles en base FTS5 pour la recherche plein texte.
 
@@ -188,20 +188,20 @@ def save_to_fts(summaries: list[Article]):
         try:            
             logger.info(f"Indexation FTS de {len(summaries)} articles")
             # Préparation des données
-            fts_data = [
-                {
-                    "title": item.title,
-                    "content": item.summary,
-                    "published": item.published
-                }
-                for item in summaries
-            ]
+            # fts_data = [
+            #     {
+            #         "title": item.title,
+            #         "content": item.summary,
+            #         "published": item.published
+            #     }
+            #     for item in summaries
+            # ]
             for item in summaries:
                 ArticleFTS.insert(
                     session,
-                    title=item.title,
-                    content=item.summary,
-                    published=item.published
+                    title=item["title"],
+                    content=item["summary"],
+                    published=item["published"]
                 )
             session.commit()
 
