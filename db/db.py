@@ -1,7 +1,8 @@
 import os
 import logging
-from sqlalchemy import create_engine
-from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy import create_engine, text
+from sqlalchemy import Column, Integer, String, Text, DateTime, Index
+from sqlalchemy import DDL
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -46,6 +47,41 @@ class Article(Base):
 @event.listens_for(Article, 'before_update')
 def update_timestamp(mapper, connection, target):    
     target.dt_updated = datetime.now(timezone.utc)
+
+class ArticleFTS(Base):
+    __tablename__ = 'articles_fts'
+    # __table_args__ = {'sqlite_autoincrement': True}
+    __table_args__ = (
+        {'sqlite_autoincrement': True},
+        # Index('idx_fts_title', 'title', unique=True),  # Empêche les doublons
+        # Configuration minimale pour FTS5 (obligatoire)
+        # {'prefixes': ['title', 'content']}  # Active la recherche par préfixe
+    )
+
+    rowid = Column(Integer, primary_key=True)
+    title = Column(String)
+    content = Column(String)
+
+    # Création de la table FTS5 via DDL : nécessite l'event create_fts_table
+    _fts_create = DDL("""
+    CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
+        title, content,
+        tokenize='unicode61',
+        prefix='2,3'
+    )
+    """)
+
+    @classmethod
+    def search(cls, session, query):
+        return session.execute(text(f"""
+            SELECT * FROM {cls.__tablename__}
+            WHERE content MATCH :query
+        """), {'query': query}).fetchall()
+
+# nécessaire si la table est créée par SQL : CREATE VIRTUAL dans le modèle ArticleFTS
+@event.listens_for(ArticleFTS.__table__, 'after_create')
+def create_fts_table(target, connection, **kw):
+    connection.execute(ArticleFTS._fts_create)
 
 #
 # Configuration SQL Alchemy
@@ -92,13 +128,51 @@ def _validate_and_get_articles_summaries(summaries):
     ]  
     return articles_data
 
+def _save_to_fts(summaries: list[dict]):
+    """
+    Sauvegarde les articles en base FTS5 pour la recherche plein texte.
+
+    Args:
+        summaries: Liste des articles résumés à insérer
+    """
+    with get_db() as session:
+        try:
+            # Filtre les articles déjà existants
+            existing_fts = session.query(ArticleFTS.title).all()
+            existing_titles = {title for (title,) in existing_fts}
+
+            # Prépare les nouveaux articles FTS (ceux pas encore indexés)
+            new_fts_articles = [
+                {"title": item["title"], "content": item["summary"]}
+                for item in summaries
+                if item["title"] not in existing_titles
+            ]
+
+            if new_fts_articles:
+                logger.info(f"Indexation FTS de {len(new_fts_articles)} nouveaux articles")
+                session.bulk_insert_mappings(ArticleFTS, new_fts_articles)
+                session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Erreur lors de l'indexation FTS: {str(e)}")
+            raise e
+        
+    # for item in summaries:
+    #     with engine.connect() as conn:
+    #         conn.execute(
+    #             text(f"INSERT INTO {ArticleFTS.__tablename__} (title, content) VALUES (:title, :content)"),
+    #             {"title": item["title"], "content": item["summary"]}
+    #         )
+    #         conn.commit()
+
+
 def save_to_db(summaries: list[dict]):
     """
     Sauvegarde les articles en base avec validation Pydantic avec insertion en bulk.
     Les articles n'ayant pas déjà été insérés le sont : filtre sur titre et date
 
     Args:
-        summaries: Liste de dictionnaires contenant les articles à insérer
+        summaries: Liste de articles à insérer
 
     Raises:
         ValueError: Si la validation Pydantic échoue
@@ -116,8 +190,14 @@ def save_to_db(summaries: list[dict]):
                 logger.info(f"Nombre de nouveaux articles {len(new_articles)}")            
                 articles_data = _validate_and_get_articles_summaries(new_articles)  
                 session.bulk_insert_mappings(Article, articles_data)
-                session.commit()            
+                session.commit()      
+                _save_to_fts(new_articles)  # Indexe les nouveaux articles en FTS      
         except Exception as e:
             session.rollback()
             raise e            
 
+if __name__ == "__main__":
+    init_db()
+    articles = read_articles()
+    _save_to_fts(articles)
+    print(f"Nombre d'articles en base: {len(articles)}")
