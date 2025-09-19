@@ -195,3 +195,22 @@ li:target {
     padding-left: 15px;
 }
 
+.toc-container {
+    background: white;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.toc-header {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.toc-header h2 {
+    color: #2c3e50;
+    margin: 0;
+    font-size: 1.1em;
+}

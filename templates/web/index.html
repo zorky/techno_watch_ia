@@ -17,13 +17,15 @@
         <button type="submit"><i class="fas fa-filter"></i> Filtrer</button>
     </form>
     <div id="top"></div>
-    <!-- Sommaire (à placer avant la liste des articles) -->
-    <div class="table-of-contents">
-        <h2>Sommaire</h2>
-        <ol>
+    <!-- Sommaire -->
+    <div class="toc-container">
+        <div class="toc-header" onclick="toggleTOC()">
+            <h2>Sommaire ▶</h2>
+        </div>
+        <ol class="table-of-contents" style="display: none;">  <!-- Masqué par défaut -->
             {% for article in articles %}
             <li>
-                <a href="#article-{{ loop.index }}">{{ article.title }}</a>
+            <a href="#article-{{ loop.index }}">{{ article.title }}</a>
             </li>
             {% endfor %}
         </ol>
@@ -52,5 +54,19 @@
     <footer>
         <p>© 2025 - Veille Techno RSS</p>
     </footer>
+<script>
+    function toggleTOC() {
+        const toc = document.querySelector('.table-of-contents');
+        const header = document.querySelector('.toc-header h2');
+
+        if (toc.style.display === 'none') {
+            toc.style.display = 'block';
+            header.textContent = 'Sommaire ▼';
+        } else {
+            toc.style.display = 'none';
+            header.textContent = 'Sommaire ▶';
+        }
+    }
+</script>
 </body>
 </html>
