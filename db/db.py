@@ -48,42 +48,70 @@ class Article(Base):
 def update_timestamp(mapper, connection, target):    
     target.dt_updated = datetime.now(timezone.utc)
 
-class ArticleFTS(Base):
-    __tablename__ = 'articles_fts'    
-    __table_args__ = (
-        {'sqlite_autoincrement': True}     
-    )
-
-    rowid = Column(Integer, primary_key=True)
-    title = Column(String)
-    content = Column(String)
-    published = Column(String, nullable=False, index=True)
-
-    # Création de la table FTS5 via DDL : nécessite l'event create_fts_table
-    _fts_create = DDL("""
-    CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
-        title, content, published,
-        tokenize='unicode61',
-        prefix='2,3',
-        unique=(title, published)
-    );                      
-    """)
+class ArticleFTS:
+    """Modèle pour la table FTS5 Full Text Search"""
+    __tablename__ = 'articles_fts'
+    @classmethod
+    def init_table(cls, engine):
+        """Crée la table FTS5 manuellement."""
+        with engine.connect() as conn:
+            conn.execute(text(f"""
+                -- DROP TABLE IF EXISTS articles_fts;
+                CREATE VIRTUAL TABLE IF NOT EXISTS {cls.__tablename__} USING fts5(
+                    title,
+                    content,
+                    published,
+                    tokenize='unicode61',
+                    prefix='2,3'
+                );
+            """))
+            conn.commit()
 
     @classmethod
-    def search(cls, session, query):
-        return session.execute(
+    def insert(cls, session, title, content, published):
+        session.execute(
             text(f"""
-            SELECT rowid, title, content, published 
-            FROM {cls.__tablename__}
-            WHERE content MATCH :query
-            """), 
-            {'query': query}
-        ).fetchall()
+            INSERT OR IGNORE INTO {cls.__tablename__} (title, content, published)
+            VALUES (:title, :content, :published)
+            """),
+            {'title': title, 'content': content, 'published': published}
+        )
 
-# nécessaire si la table est créée par SQL : CREATE VIRTUAL dans le modèle ArticleFTS
-@event.listens_for(ArticleFTS.__table__, 'after_create')
-def create_fts_table(target, connection, **kw):
-    connection.execute(ArticleFTS._fts_create)
+    @classmethod
+    def search(cls, session, query, date_min=None, date_max=None):
+        """
+        Recherche plein texte dans les articles avec filtre optionnel par date.
+
+        Args:
+            session: Session SQLAlchemy
+            query: Terme de recherche plein texte
+            date_min: Date minimale (format YYYY-MM-DD, optionnel)
+            date_max: Date maximale (format YYYY-MM-DD, optionnel)
+
+        Returns:
+            Liste des articles correspondant aux critères
+        """
+        # Construction dynamique de la requête
+        sql = f"SELECT rowid, title, content, published FROM {cls.__tablename__}"
+        where_parts = []
+        params = {}
+        where_parts.append(f"{cls.__tablename__} MATCH :query")        
+        params['query'] = query
+
+        # Ajout des filtres date
+        if date_min:
+            where_parts.append("published >= :date_min")
+            params['date_min'] = date_min
+        if date_max:
+            where_parts.append("published <= :date_max")
+            params['date_max'] = date_max
+
+        if where_parts:
+            sql += " WHERE " + " AND ".join(where_parts)
+
+        logger.info(f"Exécutant: {sql} avec {params}")
+        return session.execute(text(sql), params).fetchall()
+
 
 #
 # Configuration SQL Alchemy
@@ -95,9 +123,25 @@ engine = create_engine(
     echo=True  # Affiche les requêtes SQL (optionnel, pour le debug))
 )
 
+def recreate_fts_table():
+    """Supprime et recrée la table FTS5."""
+    with engine.connect() as conn:
+        # Supprimer l'ancienne table si elle existe
+        conn.execute(text("DROP TABLE IF EXISTS articles_fts"))
+
+        # Créer la nouvelle table
+        ArticleFTS.__table__.create(bind=engine, checkfirst=True)
+
+        # Vérifier la création
+        result = conn.execute(text(
+            "SELECT sql FROM sqlite_master WHERE name='articles_fts'"
+        )).fetchone()
+        logger.info(f"Table créée avec: {result[0] if result else 'Aucune table'}")
+
 def init_db():
     """Initialise la base de données SQLite."""
     Base.metadata.create_all(engine)
+    ArticleFTS.init_table(engine)
     print("Table 'articles' créée avec succès !")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -130,34 +174,66 @@ def _validate_and_get_articles_summaries(summaries):
     ]  
     return articles_data
 
-def _save_to_fts(summaries: list[dict]):
+def save_to_fts(summaries: list[Article]):
     """
     Sauvegarde les articles en base FTS5 pour la recherche plein texte.
 
     Args:
         summaries: Liste des articles résumés à insérer
     """
+    if not summaries:
+        return
+
     with get_db() as session:
-        try:
-            # Filtre les articles déjà existants
-            existing_fts = session.query(ArticleFTS.title).all()
-            existing_titles = {title for (title,) in existing_fts}
-
-            # Prépare les nouveaux articles FTS (ceux pas encore indexés)
-            new_fts_articles = [
-                {"title": item["title"], "content": item["summary"], "published": item["published"]}
+        try:            
+            logger.info(f"Indexation FTS de {len(summaries)} articles")
+            # Préparation des données
+            fts_data = [
+                {
+                    "title": item.title,
+                    "content": item.summary,
+                    "published": item.published
+                }
                 for item in summaries
-                if item["title"] not in existing_titles
             ]
+            for item in summaries:
+                ArticleFTS.insert(
+                    session,
+                    title=item.title,
+                    content=item.summary,
+                    published=item.published
+                )
+            session.commit()
 
-            if new_fts_articles:
-                logger.info(f"Indexation FTS de {len(new_fts_articles)} nouveaux articles")
-                session.bulk_insert_mappings(ArticleFTS, new_fts_articles)
-                session.commit()
+            # Insertion en bulk avec gestion des doublons via OR IGNORE
+            # session.execute(
+            #     text("""
+            #     INSERT OR IGNORE INTO articles_fts (title, content, published)
+            #     VALUES (:title, :content, :published)
+            #     """),
+            #     fts_data
+            # )
+            # logger.info(f"Indexation FTS de {fts_data} articles")
+            # session.execute(
+            #     text("""
+            #     INSERT INTO articles_fts (title, content, published)
+            #     VALUES (:title, :content, :published)
+            #     """),
+            #     fts_data
+            # )
+            inserted_count = session.execute(
+                text("SELECT changes()")  # Compte le nombre de lignes effectivement insérées
+            ).scalar()
+
+            if inserted_count > 0:
+                logger.info(f"Indexation FTS de {inserted_count} nouveaux articles")
+
+            session.commit()
+
         except Exception as e:
             session.rollback()
             logger.error(f"Erreur lors de l'indexation FTS: {str(e)}")
-            raise e     
+            raise e
 
 
 def save_to_db(summaries: list[dict]):
@@ -185,13 +261,33 @@ def save_to_db(summaries: list[dict]):
                 articles_data = _validate_and_get_articles_summaries(new_articles)  
                 session.bulk_insert_mappings(Article, articles_data)
                 session.commit()      
-                _save_to_fts(new_articles)  # Indexe les nouveaux articles en FTS      
+
+                save_to_fts(new_articles)
         except Exception as e:
             session.rollback()
             raise e            
 
+def search_fts(keywords: str):
+    with get_db() as session:
+        # Recherche plein texte seulement
+        result1 = ArticleFTS.search(session, keywords or "intelligence artificielle")
+        logger.info(f"Résultats FTS: {result1}")
+
+        # Recherche avec filtre date
+        result2 = ArticleFTS.search(
+            session,
+            "cybersécurité",
+            date_min="2025-01-01",
+            date_max="2025-12-31"
+        )
+        logger.info(f"Résultats FTS: {result2}")
+
+        # Recherche depuis une date
+        result3 = ArticleFTS.search(session, keywords or "docker", date_min="2025-09-01")
+        logger.info(f"Résultats FTS: {result3}")
+
 if __name__ == "__main__":
-    init_db()
+    # init_db()
     articles = read_articles()
-    _save_to_fts(articles)
+    save_to_fts(articles)
     print(f"Nombre d'articles en base: {len(articles)}")
