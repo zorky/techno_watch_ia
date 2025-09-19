@@ -96,11 +96,11 @@ h3 small {
 
 /* Style pour les résumés */
 .article-summary {
-    text-align: justify;  /* ← Justification du texte */
+    text-align: justify;
     margin: 10px 0 0;
-    color: #555;
+    color: #363535;
     padding-left: 24px;  /* Espace pour l'icône */
-    text-indent: -24px;  /* Alignement de l'icône avec le texte */
+    text-indent: -20px;  /* Alignement de l'icône avec le texte */
 }
 
 .article-summary i {
