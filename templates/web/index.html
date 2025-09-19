@@ -16,10 +16,25 @@
         <input type="date" id="date" name="date">
         <button type="submit"><i class="fas fa-filter"></i> Filtrer</button>
     </form>
+    <div id="top"></div>
+    <!-- Sommaire (à placer avant la liste des articles) -->
+    <div class="table-of-contents">
+        <h2>Sommaire</h2>
+        <ol>
+            {% for article in articles %}
+            <li>
+                <a href="#article-{{ loop.index }}">{{ article.title }}</a>
+            </li>
+            {% endfor %}
+        </ol>
+    </div>
+    <!-- Liste des articles avec IDs et ancres -->
     <ul>
         {% for article in articles %}
-        <li>
-            <h2><i class="fas fa-link"></i>
+        <li id="article-{{ loop.index }}">
+            <h2>
+                <a href="#top" class="back-to-top">↑</a>  <!-- Lien pour remonter -->
+                <i class="fas fa-link"></i>
                 <a href="{{ article.link }}" target="_blank">{{ article.title }}</a>
             </h2>
             <h3><small>
@@ -33,7 +48,7 @@
             </p>
         </li>
         {% endfor %}
-    </ul>
+    </ul>    
     <footer>
         <p>© 2025 - Veille Techno RSS</p>
     </footer>
