@@ -49,34 +49,36 @@ def update_timestamp(mapper, connection, target):
     target.dt_updated = datetime.now(timezone.utc)
 
 class ArticleFTS(Base):
-    __tablename__ = 'articles_fts'
-    # __table_args__ = {'sqlite_autoincrement': True}
+    __tablename__ = 'articles_fts'    
     __table_args__ = (
-        {'sqlite_autoincrement': True},
-        # Index('idx_fts_title', 'title', unique=True),  # Empêche les doublons
-        # Configuration minimale pour FTS5 (obligatoire)
-        # {'prefixes': ['title', 'content']}  # Active la recherche par préfixe
+        {'sqlite_autoincrement': True}     
     )
 
     rowid = Column(Integer, primary_key=True)
     title = Column(String)
     content = Column(String)
+    published = Column(String, nullable=False, index=True)
 
     # Création de la table FTS5 via DDL : nécessite l'event create_fts_table
     _fts_create = DDL("""
     CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
-        title, content,
+        title, content, published,
         tokenize='unicode61',
-        prefix='2,3'
-    )
+        prefix='2,3',
+        unique=(title, published)
+    );                      
     """)
 
     @classmethod
     def search(cls, session, query):
-        return session.execute(text(f"""
-            SELECT * FROM {cls.__tablename__}
+        return session.execute(
+            text(f"""
+            SELECT rowid, title, content, published 
+            FROM {cls.__tablename__}
             WHERE content MATCH :query
-        """), {'query': query}).fetchall()
+            """), 
+            {'query': query}
+        ).fetchall()
 
 # nécessaire si la table est créée par SQL : CREATE VIRTUAL dans le modèle ArticleFTS
 @event.listens_for(ArticleFTS.__table__, 'after_create')
@@ -143,7 +145,7 @@ def _save_to_fts(summaries: list[dict]):
 
             # Prépare les nouveaux articles FTS (ceux pas encore indexés)
             new_fts_articles = [
-                {"title": item["title"], "content": item["summary"]}
+                {"title": item["title"], "content": item["summary"], "published": item["published"]}
                 for item in summaries
                 if item["title"] not in existing_titles
             ]
@@ -155,15 +157,7 @@ def _save_to_fts(summaries: list[dict]):
         except Exception as e:
             session.rollback()
             logger.error(f"Erreur lors de l'indexation FTS: {str(e)}")
-            raise e
-        
-    # for item in summaries:
-    #     with engine.connect() as conn:
-    #         conn.execute(
-    #             text(f"INSERT INTO {ArticleFTS.__tablename__} (title, content) VALUES (:title, :content)"),
-    #             {"title": item["title"], "content": item["summary"]}
-    #         )
-    #         conn.commit()
+            raise e     
 
 
 def save_to_db(summaries: list[dict]):
