@@ -629,6 +629,15 @@ def main():
     )
     agent.invoke(state)
 
+def search():
+    from db.db import search_fts, recreate_fts_table, read_articles, save_to_fts, init_db
+    # from db.db import init_db, search_fts, recreate_fts_table
+    init_db()
+    # recreate_fts_table()
+    # articles = read_articles()
+    # save_to_fts(articles)
+    search_fts("python")    
 
 if __name__ == "__main__":
     main()
+    # search()
