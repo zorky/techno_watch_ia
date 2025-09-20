@@ -69,6 +69,7 @@ class ArticleFTS:
 
     @classmethod
     def insert(cls, session, title, content, published):
+        logger.info(f"Insertion article dans FTS: {title}")
         session.execute(
             text(f"""
             INSERT OR IGNORE INTO {cls.__tablename__} (title, content, published)
@@ -78,7 +79,19 @@ class ArticleFTS:
         )
 
     @classmethod
-    def search(cls, session, query, date_min=None, date_max=None):
+    def bulk_insert(cls, session, articles):
+        """Insère plusieurs articles en une requête."""
+        logger.info(f"Insertion en bulk de {len(articles)} articles dans FTS")
+        session.execute(
+            text(f"""
+            INSERT OR IGNORE INTO {cls.__tablename__} (title, content, published)
+            VALUES (:title, :content, :published)
+            """),
+            articles  # Liste de dicts [{'title': '...', 'content': '...', 'published': '...'}, ...]
+        )
+
+    @classmethod
+    def search(cls, session, query, date_min=None, date_max=None, limit=10):
         """
         Recherche plein texte dans les articles avec filtre optionnel par date.
 
@@ -92,7 +105,8 @@ class ArticleFTS:
             Liste des articles correspondant aux critères
         """
         # Construction dynamique de la requête
-        sql = f"SELECT rowid, title, content, published FROM {cls.__tablename__}"
+        sql = f"""SELECT rowid, title, content, published, rank, highlight(articles_fts, 0, '<b>', '</b>') 
+                  FROM {cls.__tablename__}"""
         where_parts = []
         params = {}
         where_parts.append(f"{cls.__tablename__} MATCH :query")        
@@ -109,9 +123,29 @@ class ArticleFTS:
         if where_parts:
             sql += " WHERE " + " AND ".join(where_parts)
 
+        # limiter le nombre de résultats
+        sql = f"{sql} ORDER BY rank DESC LIMIT :limit"
+        params['limit'] = limit
         logger.info(f"Exécutant: {sql} avec {params}")
         return session.execute(text(sql), params).fetchall()
 
+# Hybrid approche FTS avec SQLAlchemy ORM (non utilisé ici mais pour référence)
+# class ArticleFTS(Base):
+#     __tablename__ = 'articles_fts'
+#     __table_args__ = {'extend_existing': True}  # ← Clé pour éviter la recréation
+
+#     rowid = Column(Integer, primary_key=True)
+#     # ... autres colonnes (mais elles ne seront pas utilisées pour FTS5)
+
+#     @classmethod
+#     def __declare_last__(cls):
+#         """Crée la table FTS5 après que SQLAlchemy ait fini."""
+#         DDL("""
+#         CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
+#             title, content, published,
+#             tokenize='unicode61', prefix='2,3'
+#         );
+#         """).execute_if(dialect='sqlite')
 
 #
 # Configuration SQL Alchemy
@@ -174,6 +208,41 @@ def _validate_and_get_articles_summaries(summaries):
     ]  
     return articles_data
 
+def _articles_already_exists_fts(session, summaries: list[dict]):
+    """Les articles déjà existants dans FTS"""
+    from sqlalchemy import text, bindparam
+    
+    # existing = session.query(ArticleFTS).with_entities(ArticleFTS.title, ArticleFTS.published).all()
+
+    titles = [item['title'] for item in summaries]
+    if not titles:
+        return set()
+
+    # Cas particulier : si un seul titre, SQLite veut une liste, pas un tuple
+    select_existing = f"SELECT title, published FROM {ArticleFTS.__tablename__} "
+    if len(titles) == 1:
+        existing = session.execute(
+            text(f"""
+            {select_existing}
+            WHERE title = :title
+            """),
+            {'title': titles[0]}
+        ).fetchall()
+    else:
+        # Pour plusieurs titres, on utilise la syntaxe correcte
+        placeholders = ','.join([':title' + str(i) for i in range(len(titles))])
+        query = text(f"""
+            {select_existing}
+            WHERE title IN ({placeholders})
+        """)
+
+        # Création du dictionnaire de paramètres
+        params = {f'title{i}': title for i, title in enumerate(titles)}
+        existing = session.execute(query, params).fetchall()
+
+    existing_pairs = {(title, published) for title, published in existing}
+    return existing_pairs
+
 def save_to_fts(summaries: list[dict]):
     """
     Sauvegarde les articles en base FTS5 pour la recherche plein texte.
@@ -186,47 +255,34 @@ def save_to_fts(summaries: list[dict]):
 
     with get_db() as session:
         try:            
-            logger.info(f"Indexation FTS de {len(summaries)} articles")
-            # Préparation des données
-            # fts_data = [
-            #     {
-            #         "title": item.title,
-            #         "content": item.summary,
-            #         "published": item.published
-            #     }
-            #     for item in summaries
-            # ]
-            for item in summaries:
-                ArticleFTS.insert(
-                    session,
-                    title=item["title"],
-                    content=item["summary"],
-                    published=item["published"]
-                )
+            logger.info(f"Nombre d'articles potentiellement à indexer en FTS : {len(summaries)}")
+
+            # Récupération et détection des articles déjà indexés et préparation des données            
+            
+            existing_pairs = _articles_already_exists_fts(session, summaries)            
+            fts_data = [
+                {
+                    "title": item["title"],
+                    "content": item["summary"],
+                    "published": item["published"]
+                }
+                for item in summaries
+                if (item["title"], item["published"]) not in existing_pairs
+            ]            
+            if not fts_data:
+                logger.info("Aucun nouvel article à indexer en FTS")
+                return
+            logger.info(f"Indexation FTS de {len(fts_data)} nouveaux articles")
+
+            ArticleFTS.bulk_insert(session, fts_data)            
             session.commit()
 
-            # Insertion en bulk avec gestion des doublons via OR IGNORE
-            # session.execute(
-            #     text("""
-            #     INSERT OR IGNORE INTO articles_fts (title, content, published)
-            #     VALUES (:title, :content, :published)
-            #     """),
-            #     fts_data
-            # )
-            # logger.info(f"Indexation FTS de {fts_data} articles")
-            # session.execute(
-            #     text("""
-            #     INSERT INTO articles_fts (title, content, published)
-            #     VALUES (:title, :content, :published)
-            #     """),
-            #     fts_data
-            # )
             inserted_count = session.execute(
                 text("SELECT changes()")  # Compte le nombre de lignes effectivement insérées
             ).scalar()
 
             if inserted_count > 0:
-                logger.info(f"Indexation FTS de {inserted_count} nouveaux articles")
+                logger.info(f"Indexation effective FTS de {inserted_count} nouveaux articles")
 
             session.commit()
 

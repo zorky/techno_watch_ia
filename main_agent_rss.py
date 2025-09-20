@@ -634,9 +634,9 @@ def search():
     # from db.db import init_db, search_fts, recreate_fts_table
     init_db()
     # recreate_fts_table()
-    articles = read_articles()
-    save_to_fts(articles)
-    search_fts("sqlite recherche")
+    # articles = read_articles()
+    # save_to_fts(articles)
+    search_fts("python")    
 
 if __name__ == "__main__":
     main()
