@@ -94,27 +94,34 @@ class ArticleFTS:
     def search(cls, session, query, date_min=None, date_max=None, limit=10):
         """
         Recherche plein texte dans les articles avec filtre optionnel par date.
+        avec score basé sur rank().
 
         Args:
             session: Session SQLAlchemy
             query: Terme de recherche plein texte
             date_min: Date minimale (format YYYY-MM-DD, optionnel)
             date_max: Date maximale (format YYYY-MM-DD, optionnel)
+            limit: Nombre maximum de résultats
 
         Returns:
             Liste des articles correspondant aux critères
         """
+
+        # Base SQL pour le CTE
         base_sql = f"""
-            SELECT 
-                rowid, 
-                title, 
-                content, 
-                published, 
-                rank, 
-                highlight({cls.__tablename__}, 0, '<b>', '</b>') AS title_highlight
-            FROM {cls.__tablename__}
+            WITH ranked AS (
+                SELECT 
+                    rowid, 
+                    highlight({cls.__tablename__}, 0, '<mark>', '</mark>') AS title,
+                    highlight({cls.__tablename__}, 1, '<mark>', '</mark>') AS content,
+                    published, 
+                    -rank AS score
+                FROM {cls.__tablename__}
+                WHERE {cls.__tablename__} MATCH :query
         """
-        where_clauses = [f"{cls.__tablename__} MATCH :query"]
+
+        # Ajout des filtres optionnels
+        where_clauses = []
         params = {"query": query, "limit": limit}
 
         if date_min:
@@ -125,9 +132,78 @@ class ArticleFTS:
             params["date_max"] = date_max
 
         if where_clauses:
-            base_sql += " WHERE " + " AND ".join(where_clauses)
+            base_sql += " AND " + " AND ".join(where_clauses)
 
-        base_sql += " ORDER BY rank DESC LIMIT :limit"
+        base_sql += """
+            )
+            SELECT 
+                rowid, 
+                title, 
+                content, 
+                published,
+                ROUND(100.0 * score / (SELECT MAX(score) FROM ranked), 2) AS rank
+            FROM ranked
+            ORDER BY rank DESC
+            LIMIT :limit
+        """
+
+        logger.debug(f"SQL exécuté: {base_sql} avec {params}")
+        return session.execute(text(base_sql), params).fetchall()
+
+    @classmethod
+    def search_with_bm25(cls, session, query, date_min=None, date_max=None, limit=10):
+        """
+        Recherche plein texte dans les articles avec filtre optionnel par date,
+        avec score basé sur bm25() : on opérationnel
+        /!\ erreur :
+        sqlite3.OperationalError: unable to use function bm25 in the requested context
+        requête SQL générée :
+        WITH ranked AS ( SELECT rowid, highlight(articles_fts, 0, '<mark>', '</mark>') AS title, highlight(articles_fts, 1, '<mark>', '</mark>') AS content, published, bm25(articles_fts) AS score FROM articles_fts WHERE articles_fts MATCH ? ) SELECT rowid, title, content, published, ROUND( 100.0 * ( (SELECT MAX(score) FROM ranked) - score ) / NULLIF((SELECT MAX(score) FROM ranked) - (SELECT MIN(score) FROM ranked), 0), 2 ) AS rank FROM ranked ORDER BY rank DESC LIMIT ?
+        """
+
+        base_sql = f"""
+            WITH ranked AS (
+                SELECT 
+                    rowid, 
+                    highlight({cls.__tablename__}, 0, '<mark>', '</mark>') AS title,
+                    highlight({cls.__tablename__}, 1, '<mark>', '</mark>') AS content,
+                    published,
+                    bm25({cls.__tablename__}) AS score
+                FROM {cls.__tablename__}
+                WHERE {cls.__tablename__} MATCH :query
+        """
+
+        # Filtres optionnels
+        where_clauses = []
+        params = {"query": query, "limit": limit}
+
+        if date_min:
+            where_clauses.append("published >= :date_min")
+            params["date_min"] = date_min
+        if date_max:
+            where_clauses.append("published <= :date_max")
+            params["date_max"] = date_max
+
+        if where_clauses:
+            base_sql += " AND " + " AND ".join(where_clauses)
+
+        # Normalisation : plus le score est faible, plus la pertinence est forte
+        base_sql += """
+            )
+            SELECT 
+                rowid, 
+                title, 
+                content, 
+                published,
+                ROUND(
+                    100.0 * ( (SELECT MAX(score) FROM ranked) - score ) 
+                    / NULLIF((SELECT MAX(score) FROM ranked) - (SELECT MIN(score) FROM ranked), 0), 
+                    2
+                ) AS rank
+            FROM ranked
+            ORDER BY rank DESC
+            LIMIT :limit
+        """
 
         logger.debug(f"SQL exécuté: {base_sql} avec {params}")
         return session.execute(text(base_sql), params).fetchall()
