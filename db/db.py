@@ -104,30 +104,33 @@ class ArticleFTS:
         Returns:
             Liste des articles correspondant aux critères
         """
-        # Construction dynamique de la requête
-        sql = f"""SELECT rowid, title, content, published, rank, highlight(articles_fts, 0, '<b>', '</b>') 
-                  FROM {cls.__tablename__}"""
-        where_parts = []
-        params = {}
-        where_parts.append(f"{cls.__tablename__} MATCH :query")        
-        params['query'] = query
+        base_sql = f"""
+            SELECT 
+                rowid, 
+                title, 
+                content, 
+                published, 
+                rank, 
+                highlight({cls.__tablename__}, 0, '<b>', '</b>') AS title_highlight
+            FROM {cls.__tablename__}
+        """
+        where_clauses = [f"{cls.__tablename__} MATCH :query"]
+        params = {"query": query, "limit": limit}
 
-        # Ajout des filtres date
         if date_min:
-            where_parts.append("published >= :date_min")
-            params['date_min'] = date_min
+            where_clauses.append("published >= :date_min")
+            params["date_min"] = date_min
         if date_max:
-            where_parts.append("published <= :date_max")
-            params['date_max'] = date_max
+            where_clauses.append("published <= :date_max")
+            params["date_max"] = date_max
 
-        if where_parts:
-            sql += " WHERE " + " AND ".join(where_parts)
+        if where_clauses:
+            base_sql += " WHERE " + " AND ".join(where_clauses)
 
-        # limiter le nombre de résultats
-        sql = f"{sql} ORDER BY rank DESC LIMIT :limit"
-        params['limit'] = limit
-        logger.info(f"Exécutant: {sql} avec {params}")
-        return session.execute(text(sql), params).fetchall()
+        base_sql += " ORDER BY rank DESC LIMIT :limit"
+
+        logger.debug(f"SQL exécuté: {base_sql} avec {params}")
+        return session.execute(text(base_sql), params).fetchall()
 
 # Hybrid approche FTS avec SQLAlchemy ORM (non utilisé ici mais pour référence)
 # class ArticleFTS(Base):
@@ -157,20 +160,20 @@ engine = create_engine(
     echo=True  # Affiche les requêtes SQL (optionnel, pour le debug))
 )
 
-def recreate_fts_table():
-    """Supprime et recrée la table FTS5."""
-    with engine.connect() as conn:
-        # Supprimer l'ancienne table si elle existe
-        conn.execute(text("DROP TABLE IF EXISTS articles_fts"))
+# def recreate_fts_table():
+#     """Supprime et recrée la table FTS5."""
+#     with engine.connect() as conn:
+#         # Supprimer l'ancienne table si elle existe
+#         conn.execute(text("DROP TABLE IF EXISTS articles_fts"))
 
-        # Créer la nouvelle table
-        ArticleFTS.__table__.create(bind=engine, checkfirst=True)
+#         # Créer la nouvelle table
+#         ArticleFTS.__table__.create(bind=engine, checkfirst=True)
 
-        # Vérifier la création
-        result = conn.execute(text(
-            "SELECT sql FROM sqlite_master WHERE name='articles_fts'"
-        )).fetchone()
-        logger.info(f"Table créée avec: {result[0] if result else 'Aucune table'}")
+#         # Vérifier la création
+#         result = conn.execute(text(
+#             "SELECT sql FROM sqlite_master WHERE name='articles_fts'"
+#         )).fetchone()
+#         logger.info(f"Table créée avec: {result[0] if result else 'Aucune table'}")
 
 def init_db():
     """Initialise la base de données SQLite."""
@@ -211,36 +214,20 @@ def _validate_and_get_articles_summaries(summaries):
 def _articles_already_exists_fts(session, summaries: list[dict]):
     """Les articles déjà existants dans FTS"""
     from sqlalchemy import text, bindparam
-    
-    # existing = session.query(ArticleFTS).with_entities(ArticleFTS.title, ArticleFTS.published).all()
 
     titles = [item['title'] for item in summaries]
     if not titles:
         return set()
 
-    # Cas particulier : si un seul titre, SQLite veut une liste, pas un tuple
-    select_existing = f"SELECT title, published FROM {ArticleFTS.__tablename__} "
-    if len(titles) == 1:
-        existing = session.execute(
-            text(f"""
-            {select_existing}
-            WHERE title = :title
-            """),
-            {'title': titles[0]}
-        ).fetchall()
-    else:
-        # Pour plusieurs titres, on utilise la syntaxe correcte
-        placeholders = ','.join([':title' + str(i) for i in range(len(titles))])
-        query = text(f"""
-            {select_existing}
-            WHERE title IN ({placeholders})
-        """)
+    query = text(f"""
+        SELECT title, published
+        FROM {ArticleFTS.__tablename__}
+        WHERE title IN :titles
+    """).bindparams(bindparam("titles", expanding=True))
 
-        # Création du dictionnaire de paramètres
-        params = {f'title{i}': title for i, title in enumerate(titles)}
-        existing = session.execute(query, params).fetchall()
-
+    existing = session.execute(query, {"titles": titles}).fetchall()
     existing_pairs = {(title, published) for title, published in existing}
+
     return existing_pairs
 
 def save_to_fts(summaries: list[dict]):
