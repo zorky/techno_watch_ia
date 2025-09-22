@@ -9,10 +9,10 @@
             {{ article.title | safe }}
         {% endif %}
     </h2>
-    <p class="text-gray-500 my-2 text-sm">
+    <!-- <p class="text-gray-500 my-2 text-sm">
         article publié le {{ article.published }} -
         score: {{ "%.1f"|format(article.score ) }}%
-    </p>
+    </p> -->
     <p class="text-gray-700 mt-2.5 pl-6 relative">
         <i class="fas fa-newspaper text-blue-500 absolute left-0"></i>
         {{ article.summary | nl2br | safe }}

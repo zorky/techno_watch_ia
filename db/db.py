@@ -52,20 +52,47 @@ class ArticleFTS:
     """Modèle pour la table FTS5 Full Text Search"""
     __tablename__ = 'articles_fts'
     @classmethod
-    def init_table(cls, engine):
+    def execute_statement(cls, conn, statement):
+        conn.execute(statement)
+        conn.commit()
+
+    @classmethod
+    def init_table(cls, engine):                
         """Crée la table FTS5 manuellement."""
-        with engine.connect() as conn:
-            conn.execute(text(f"""
+        with engine.connect() as conn:        
+            cls.execute_statement(conn, text(f"""
                 -- DROP TABLE IF EXISTS articles_fts;
                 CREATE VIRTUAL TABLE IF NOT EXISTS {cls.__tablename__} USING fts5(
+                    article_id,
                     title,
-                    content,
-                    published,
+                    content,                    
                     tokenize='unicode61',
                     prefix='2,3'
-                );
+                );                                               
+                """))
+            cls.execute_statement(conn, text(f"""
+            -- Trigger pour l'insertion
+                CREATE TRIGGER sync_article_fts AFTER INSERT ON {Article.__tablename__}
+                BEGIN
+                    INSERT INTO {cls.__tablename__}(article_id, title, content) VALUES (new.id, new.title, new.summary);
+                END;
             """))
-            conn.commit()
+            cls.execute_statement(conn, text(f"""
+            -- Trigger pour la mise à jour
+                CREATE TRIGGER sync_article_update AFTER UPDATE ON {Article.__tablename__}
+                BEGIN
+                    UPDATE {cls.__tablename__}
+                    SET title = new.title, content = new.summary
+                    WHERE article_id = new.id;
+                END;
+            """))
+            cls.execute_statement(conn, text(f"""
+            -- Trigger pour la suppression
+                CREATE TRIGGER sync_article_delete AFTER DELETE ON {Article.__tablename__}
+                BEGIN
+                    DELETE FROM {cls.__tablename__} WHERE article_id = old.id;
+                END;
+            """))            
 
     @classmethod
     def insert(cls, session, title, content, published):
@@ -106,7 +133,16 @@ class ArticleFTS:
         Returns:
             Liste des articles correspondant aux critères
         """
-
+        # session.execute(
+        #     """
+        #     SELECT a.*
+        #     FROM article a
+        #     JOIN article_fts f ON a.id = f.rowid
+        #     WHERE article_fts MATCH :query
+        #     """,
+        #     {"query": query}
+        # ).fetchall()
+        
         # Base SQL pour le CTE
         base_sql = f"""
             WITH ranked AS (
@@ -114,7 +150,7 @@ class ArticleFTS:
                     rowid, 
                     highlight({cls.__tablename__}, 0, '<mark>', '</mark>') AS title,
                     highlight({cls.__tablename__}, 1, '<mark>', '</mark>') AS content,
-                    published, 
+                    -- published, 
                     -rank AS score
                 FROM {cls.__tablename__}
                 WHERE {cls.__tablename__} MATCH :query
@@ -124,12 +160,12 @@ class ArticleFTS:
         where_clauses = []
         params = {"query": query, "limit": limit}
 
-        if date_min:
-            where_clauses.append("published >= :date_min")
-            params["date_min"] = date_min
-        if date_max:
-            where_clauses.append("published <= :date_max")
-            params["date_max"] = date_max
+        # if date_min:
+        #     where_clauses.append("published >= :date_min")
+        #     params["date_min"] = date_min
+        # if date_max:
+        #     where_clauses.append("published <= :date_max")
+        #     params["date_max"] = date_max
 
         if where_clauses:
             base_sql += " AND " + " AND ".join(where_clauses)
@@ -140,7 +176,7 @@ class ArticleFTS:
                 rowid, 
                 title, 
                 content, 
-                published,
+                -- published,
                 ROUND(100.0 * score / (SELECT MAX(score) FROM ranked), 2) AS rank
             FROM ranked
             ORDER BY rank DESC
@@ -381,7 +417,7 @@ def save_to_db(summaries: list[dict]):
                 session.bulk_insert_mappings(Article, articles_data)
                 session.commit()      
 
-                save_to_fts(new_articles)
+                # save_to_fts(new_articles)
         except Exception as e:
             session.rollback()
             raise e            

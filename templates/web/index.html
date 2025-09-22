@@ -79,7 +79,7 @@
             {% for article in articles %}
             <li class="my-1.5 py-0.5">
                 <a href="#article-{{ loop.index }}" class="text-blue-500 hover:text-blue-600 hover:underline text-sm block">
-                    {{ article.title }}
+                    {{ article.title }} ({{ article.published | format_date }})
                 </a>
             </li>
             {% endfor %}

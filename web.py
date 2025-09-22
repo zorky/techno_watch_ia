@@ -84,8 +84,7 @@ def search_articles(
                 "title": row.title,
                 # "title_highlight": row.title_highlight,  # Titre avec mots clés en gras
                 "summary": row.content,
-                "published": row.published,
-                # "published": row.published.strftime("%d/%m/%Y"),
+                # "published": row.published,                
                 "score": row.rank
             }
             for row in results
