@@ -81,6 +81,7 @@
     </footer>
 
     <script>
+        // Affiche on/off le sommaine
         function toggleTOC() {
             const toc = document.getElementById('toc-list');
             const header = document.querySelector('.toc-header h2');
@@ -93,7 +94,10 @@
             }
         }
 
-        // Recherche AJAX
+        function _setResponses(data) {
+            document.getElementById('results').innerHTML = data;
+        }
+        // Recherche AJAX par fetch
         document.querySelector('form[action="/search"]').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
@@ -101,7 +105,17 @@
 
             const response = await fetch(`/search?${new URLSearchParams(formData)}`);
             if (response.ok) {
-                document.getElementById('results').innerHTML = await response.text();
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    if (data.error) {                        
+                        _setResponses(data.error);                        
+                    } else {
+                        _setResponses(await response.text());                        
+                    }
+                } else {
+                    _setResponses(await response.text());                    
+                }
             } else {
                 console.error('Erreur lors de la recherche');
             }
