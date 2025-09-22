@@ -133,24 +133,18 @@ class ArticleFTS:
         Returns:
             Liste des articles correspondant aux critères
         """
-        # session.execute(
-        #     """
-        #     SELECT a.*
-        #     FROM article a
-        #     JOIN article_fts f ON a.id = f.rowid
-        #     WHERE article_fts MATCH :query
-        #     """,
-        #     {"query": query}
-        # ).fetchall()
+        # Les indices des 2 champs hightlights de la table articles_fts
+        IDX_TITLE_TABLE = 1
+        IDX_CONTENT_TABLE = 2        
         
         # Base SQL pour le CTE
         base_sql = f"""
             WITH ranked AS (
-                SELECT 
+                SELECT                     
                     rowid, 
-                    highlight({cls.__tablename__}, 0, '<mark>', '</mark>') AS title,
-                    highlight({cls.__tablename__}, 1, '<mark>', '</mark>') AS content,
-                    -- published, 
+                    article_id,
+                    highlight({cls.__tablename__}, {IDX_TITLE_TABLE}, '<mark>', '</mark>') AS title,
+                    highlight({cls.__tablename__}, {IDX_CONTENT_TABLE}, '<mark>', '</mark>') AS content,                
                     -rank AS score
                 FROM {cls.__tablename__}
                 WHERE {cls.__tablename__} MATCH :query
@@ -160,31 +154,41 @@ class ArticleFTS:
         where_clauses = []
         params = {"query": query, "limit": limit}
 
-        # if date_min:
-        #     where_clauses.append("published >= :date_min")
-        #     params["date_min"] = date_min
-        # if date_max:
-        #     where_clauses.append("published <= :date_max")
-        #     params["date_max"] = date_max
+        if date_min:
+            where_clauses.append("a.published >= :date_min")
+            params["date_min"] = date_min
+        if date_max:
+            where_clauses.append("a.published <= :date_max")
+            params["date_max"] = date_max
 
-        if where_clauses:
-            base_sql += " AND " + " AND ".join(where_clauses)
-
-        base_sql += """
+        base_sql += f"""
             )
             SELECT 
-                rowid, 
-                title, 
-                content, 
-                -- published,
-                ROUND(100.0 * score / (SELECT MAX(score) FROM ranked), 2) AS rank
+                ranked.title as title, 
+                ranked.content as content,  
+                a.link as link,
+                a.published as published,                                                
+                ROUND(100.0 * ranked.score / (SELECT MAX(ranked.score) FROM ranked), 2) AS rank
             FROM ranked
+            JOIN {Article.__tablename__} a on a.id = ranked.article_id
+        """
+        
+        if where_clauses:
+            base_sql += "    WHERE " + " AND ".join(where_clauses)
+            logger.info(f"where {base_sql}")
+
+        base_sql += f"""
             ORDER BY rank DESC
             LIMIT :limit
         """
 
-        logger.debug(f"SQL exécuté: {base_sql} avec {params}")
-        return session.execute(text(base_sql), params).fetchall()
+        logger.info(f"SQL exécuté: {base_sql} avec {params}")
+        # results = session.execute(text(base_sql), params).fetchall()
+        results = session.execute(text(base_sql), params)
+        results_as_dict = results.mappings().all()
+        logger.info(f"results : {results_as_dict}")
+        return results_as_dict
+        # return results.fetchall()
 
     @classmethod
     def search_with_bm25(cls, session, query, date_min=None, date_max=None, limit=10):

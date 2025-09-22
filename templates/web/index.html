@@ -32,62 +32,20 @@
     </header>
 
     <!-- Recherche plein texte (FTS) -->
-    <form method="get" action="/search" class="mb-7">
-        <div class="flex flex-wrap gap-2.5 items-end">
-            <input
-                type="text"
-                name="q"
-                placeholder="Rechercher dans les articles..."
-                class="flex-grow px-3.5 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                value="{{ request.query_params.q if request.query_params.q else '' }}"
-            >
-            <input
-                type="date"
-                name="date_min"
-                class="px-3.5 py-2 border border-gray-300 rounded-md"
-                value="{{ request.query_params.date_min if request.query_params.date_min else '' }}"
-            >
-            <input
-                type="date"
-                name="date_max"
-                class="px-3.5 py-2 border border-gray-300 rounded-md"
-                value="{{ request.query_params.date_max if request.query_params.date_max else '' }}"
-            >
-            <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
-                Rechercher
-            </button>
-        </div>
-    </form>
+     {% include 'fragments/_search_banner.html' %}    
 
     <!-- Filtrage par date -->
-    <form method="get" class="mb-7 flex flex-wrap gap-2.5 items-center">
-        <label for="date" class="font-medium">Filtrer par date de publication :</label>
-        <input type="date" id="date" name="date" class="px-3.5 py-2 border border-gray-300 rounded-md">
-        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors flex items-center gap-2">
-            <i class="fas fa-filter"></i> Filtrer
-        </button>
-    </form>
+     {% include 'fragments/_dates_filters.html' %} 
+
+    <!-- Résultats search fetch AJAX (sera rempli dynamiquement avec le fragmant _search_ajax_results.html) -->
+    <div id="results" class="mb-6"></div>
 
     <div id="top" class="scroll-mt-20"></div> <!-- Offset pour le scroll -->
 
-    <!-- Sommaire (TOC) -->
-    <div class="bg-white p-2 mb-4 rounded-lg shadow-sm">
-        <div class="toc-header cursor-pointer flex items-center" onclick="toggleTOC()">
-            <h2 class="text-lg text-gray-800 m-0 font-semibold">Sommaire ▶</h2>
-        </div>
-        <ol id="toc-list" class="table-of-contents pl-5 hidden"> <!-- Masqué par défaut -->
-            {% for article in articles %}
-            <li class="my-1.5 py-0.5">
-                <a href="#article-{{ loop.index }}" class="text-blue-500 hover:text-blue-600 hover:underline text-sm block">
-                    {{ article.title }} ({{ article.published | format_date }})
-                </a>
-            </li>
-            {% endfor %}
-        </ol>
-    </div>
-
-    <!-- Résultats AJAX (sera rempli dynamiquement) -->
-    <div id="results" class="mb-6"></div>
+    <!-- Sommaire (TOC) -->     
+    {% with articles=articles %}
+        {% include 'fragments/_toc.html' %}
+    {% endwith %}
 
     <!-- Liste des articles -->
     <ul class="list-none p-0">

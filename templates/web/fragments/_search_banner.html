@@ -1,0 +1,28 @@
+<!-- Recherche plein texte (FTS) -->
+    <form method="get" action="/search" class="mb-7">
+        <div class="flex flex-wrap gap-2.5 items-end">
+            <input
+                type="text"
+                name="q"
+                placeholder="Rechercher dans les articles..."
+                class="flex-grow px-3.5 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value="{{ request.query_params.q if request.query_params.q else '' }}"
+            >
+            <input
+                type="date"
+                name="date_min"
+                class="px-3.5 py-2 border border-gray-300 rounded-md"
+                value="{{ request.query_params.date_min if request.query_params.date_min else '' }}"
+            >
+            <input
+                type="date"
+                name="date_max"
+                class="px-3.5 py-2 border border-gray-300 rounded-md"
+                value="{{ request.query_params.date_max if request.query_params.date_max else '' }}"
+            >
+            <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">
+                <i class="fas fa-search"></i>
+                Rechercher
+            </button>
+        </div>
+    </form>

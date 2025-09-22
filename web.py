@@ -77,14 +77,13 @@ def search_articles(
             date_max=date_max,
             limit=limit
         )
-        logger.debug(f"Résultats bruts: {results}")
+        logger.info(f"Résultats bruts: {results}")
         articles = [
-            {
-                "id": row.rowid,
+            {                
                 "title": row.title,
-                # "title_highlight": row.title_highlight,  # Titre avec mots clés en gras
+                "link": row.link,                
                 "summary": row.content,
-                # "published": row.published,                
+                "published": row.published,                
                 "score": row.rank
             }
             for row in results
