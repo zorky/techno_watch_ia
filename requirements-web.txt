@@ -1,0 +1,22 @@
+# FastAPI et serveur ASGI
+fastapi>=0.116.1
+uvicorn>=0.35.0
+
+# Templates et fichiers statiques
+jinja2>=3.1.2
+
+# Variables d'environnement
+python-dotenv>=0.9.9
+
+# Base de données
+sqlalchemy>=2.0.43
+
+# Date et heure
+python-dateutil>=2.9.0.post0
+pytz>=2025.2
+
+# Validation de données
+pydantic>=2.11.7
+
+# Multipart forms (pour FastAPI)
+python-multipart>=0.0.6

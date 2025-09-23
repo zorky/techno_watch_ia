@@ -1,0 +1,31 @@
+services:
+  fastapi-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_PATH=/app/data/techno-watch.db
+    volumes:
+      # Monte un volume pour la base de données (persistance)
+      - ./data:/app/data
+      # Si vous voulez développer avec hot reload, décommentez la ligne suivante
+      # - .:/app
+    restart: unless-stopped
+    # Pour le développement avec hot reload, décommentez et modifiez la commande
+    # command: uvicorn web:app --host 0.0.0.0 --port 8000 --reload
+
+  # Optionnel : serveur web nginx comme reverse proxy
+  # nginx:
+  #   image: nginx:alpine
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - fastapi-app
+  #   restart: unless-stopped
+  #   # Décommentez si vous n'avez pas besoin de nginx
+  #   profiles:
+  #     - nginx
