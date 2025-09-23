@@ -157,6 +157,7 @@ model = init_sentence_model()
 # =========================
 
 def preprocess_text(text):
+    """For tests purposes - Prétraitement simple : tokenization, suppression des stopwords, lemmatisation."""
     from nltk.stem import WordNetLemmatizer
     from nltk.tokenize import word_tokenize
     from nltk.corpus import stopwords
@@ -314,8 +315,15 @@ Résumé :"""
 
     # **Résumé :**"""
 
+def _calculate_tokens(summary, elapsed):
+    import tiktoken
+    enc = tiktoken.get_encoding("cl100k_base")
+    tokens = len(enc.encode(summary))
+    logger.info(f"Résumé : {tokens} tokens - débit approximatif {tokens / elapsed:.2f} tokens/s")
+
 @measure_time
 def summarize_article(title, content):    
+    import time
     prompt = set_prompt("IA, ingénieurie logicielle et cybersécurité", title, content)
 
     if argscli.debug:
@@ -325,8 +333,16 @@ def summarize_article(title, content):
             + prompt
             + "\n---------------------------"
         )
+        start = time.time()    
+
     # Appel au LLM
     result = llm.invoke(prompt)
+    summary = result.content.strip().strip('"').strip()
+
+    if argscli.debug:
+        end = time.time()
+        elapsed = end - start
+        _calculate_tokens(summary, elapsed)
 
     if argscli.debug:
         logger.debug(
@@ -335,7 +351,7 @@ def summarize_article(title, content):
             + str(result)
             + "\n---------------------------"
         )
-    summary = result.content.strip().strip('"').strip()
+    
     # Nettoyage des introductions génériques
     for prefix in ["Voici un résumé :", "Résumé :", "L'article explique que"]:
         if summary.startswith(prefix):
@@ -475,7 +491,6 @@ def filter_node(state: RSSState) -> RSSState:
 
     return state.model_copy(update={"filtered_articles": filtered})
 
-
 def summarize_node(state: RSSState) -> RSSState:
     from datetime import datetime, timezone
     logger.info("✏️  Résumé des articles filtrés...")
@@ -602,6 +617,14 @@ def _show_graph(graph):
     except Exception as e:
         logger.error(f"{e}")        
         
+def create_fetchers():    
+    from services.factory_fetcher import FetcherFactory
+    from services.reedit_fetcher import RedditFetcher
+    from services.rss_fetcher import RSSFetcher
+    from services.models import SourceType
+
+    FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
+    # FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
 
 # =========================
 # Main
@@ -616,6 +639,9 @@ def main():
     )
     logger.info(Fore.YELLOW + f"Initialisation DB")
     init_db()    
+
+    # create_fetchers()
+
     agent = make_graph()
     if argscli.debug:
         logger.info(f"🤖 LangGraph déroulera cet automate...")
