@@ -739,6 +739,17 @@ def _show_graph(graph):
     except Exception as e:
         logger.error(f"{e}")
 
+def prepare_data():
+    register_fetchers()
+    rss_urls = get_rss_urls()
+    logger.info(f"{len(rss_urls)} flux RSS à traiter")
+    initial_state = UnifiedState(
+        sources=rss_urls,
+        keywords=FILTER_KEYWORDS
+        if FILTER_KEYWORDS != [""]
+        else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],
+    )
+    return initial_state
 
 # =========================
 # Main
@@ -755,30 +766,15 @@ def main():
     logger.info(Fore.YELLOW + f"Initialisation DB")
     init_db()
 
-    register_fetchers()
-    rss_urls = get_rss_urls()
-    logger.info(f"{len(rss_urls)} flux RSS à traiter")
-    initial_state = UnifiedState(
-        sources=rss_urls,
-        keywords=FILTER_KEYWORDS
-        if FILTER_KEYWORDS != [""]
-        else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],
-    )
+    initial_state = prepare_data()
 
     agent = make_graph()
+
     if argscli.debug:
         logger.info(f"🤖 LangGraph déroulera cet automate...")
         _show_graph(agent)
-    agent.invoke(initial_state)
 
-    # rss_urls = get_rss_urls()
-    # state = RSSState(
-    #     rss_urls=rss_urls,
-    #     keywords=FILTER_KEYWORDS
-    #     if FILTER_KEYWORDS != [""]
-    #     else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],
-    # )
-    # agent.invoke(state)
+    agent.invoke(initial_state)
 
 
 def search():
