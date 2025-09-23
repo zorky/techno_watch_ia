@@ -76,6 +76,16 @@ from core import measure_time, argscli
 from services.factory_fetcher import FetcherFactory
 from services.models import Source, SourceType, UnifiedState
 
+from core import logger
+
+# =========================
+# Init du logging et logger
+# Par défaut INFO
+# Forcer à DEBUG : python main_agent_rss.py --debug
+# =========================
+
+logging.basicConfig(level=logging.INFO)
+
 # =========================
 # Configuration du modèle LLM et configurations recherche
 # =========================
@@ -87,7 +97,7 @@ LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOp
 # LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 # Modèles embeddings disponibles et spécs : https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
-MODEL_EMBEDDINGS="all-MiniLM-L6-v2"
+MODEL_EMBEDDINGS = "all-MiniLM-L6-v2"
 # MODEL_EMBEDDINGS="all-mpnet-base-v2"
 
 FILTER_KEYWORDS = os.getenv("FILTER_KEYWORDS", "").split(",")
@@ -97,14 +107,6 @@ OPML_FILE = os.getenv("OPML_FILE", "my.opml")
 TOP_P = float(os.getenv("TOP_P", "0.5"))
 MAX_TOKENS_GENERATE = int(os.getenv("MAX_TOKENS_GENERATE", "300"))
 
-# =========================
-# Init du logging et logger
-# Par défaut INFO
-# Forcer à DEBUG : python main_agent_rss.py --debug
-# =========================
-
-logging.basicConfig(level=logging.INFO)
-from core import logger
 
 # =========================
 # Configuration LLM local / saas
@@ -116,7 +118,7 @@ def init_llm_chat():
         openai_api_key="dummy-key-ollama",
         temperature=LLM_TEMPERATURE,
         top_p=TOP_P,
-        max_tokens=MAX_TOKENS_GENERATE
+        max_tokens=MAX_TOKENS_GENERATE,
     )
     # return ChatOllama(
     #     model=LLM_MODEL,
@@ -126,30 +128,38 @@ def init_llm_chat():
     #     # num_predict=MAX_TOKENS,
     # )
 
+
 llm = init_llm_chat()
 
 # =========================
 # Configuration du modèle d'embeddings
-# Modèles disponibles et spécs : 
+# Modèles disponibles et spécs :
 # https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
 # =========================
 
+
 def get_device_cpu_gpu_info():
     import torch
+
     if torch.cuda.is_available():
         gpu_name = torch.cuda.get_device_name(0)
         logger.info(Fore.GREEN + f"GPU disponible : {gpu_name}")
-        return "cuda"    
-    logger.info(Fore.YELLOW + "Aucun GPU disponible, utilisation du CPU.")    
+        return "cuda"
+    logger.info(Fore.YELLOW + "Aucun GPU disponible, utilisation du CPU.")
     return "cpu"
+
 
 DEVICE_TYPE = get_device_cpu_gpu_info()
 
+
 def init_sentence_model():
-    logger.info(Fore.GREEN + f"Init SentenceTransformer {MODEL_EMBEDDINGS} sur {DEVICE_TYPE}")
+    logger.info(
+        Fore.GREEN + f"Init SentenceTransformer {MODEL_EMBEDDINGS} sur {DEVICE_TYPE}"
+    )
     return SentenceTransformer(MODEL_EMBEDDINGS, device=DEVICE_TYPE)
     # return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=DEVICE_TYPE)  # bon compromis pour le français/anglais
     # return SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=DEVICE_TYPE)  # Optimisé pour la similarité
+
 
 model = init_sentence_model()
 
@@ -157,6 +167,7 @@ model = init_sentence_model()
 # =========================
 # Fonctions utilitaires
 # =========================
+
 
 def preprocess_text(text):
     """For tests purposes - Prétraitement simple : tokenization, suppression des stopwords, lemmatisation."""
@@ -166,18 +177,23 @@ def preprocess_text(text):
     import nltk
     import string
 
-    nltk.download('punkt_tab')
-    nltk.download('stopwords')
-    nltk.download('wordnet')
+    nltk.download("punkt_tab")
+    nltk.download("stopwords")
+    nltk.download("wordnet")
 
     # Tokenization
     tokens = word_tokenize(text.lower())
     # Suppression des stopwords et ponctuation
-    tokens = [t for t in tokens if t not in stopwords.words('french') and t not in string.punctuation]
+    tokens = [
+        t
+        for t in tokens
+        if t not in stopwords.words("french") and t not in string.punctuation
+    ]
     # Lemmatisation
     lemmatizer = WordNetLemmatizer()
     tokens = [lemmatizer.lemmatize(t) for t in tokens]
     return " ".join(tokens)
+
 
 @measure_time
 def filter_articles_with_faiss(
@@ -209,9 +225,11 @@ def filter_articles_with_faiss(
             keyword_embeddings = model.encode(
                 keywords, convert_to_tensor=True, show_progress_bar=show_progress
             )
-            keyword_embeddings = keyword_embeddings.cpu().numpy()                        
+            keyword_embeddings = keyword_embeddings.cpu().numpy()
             faiss.normalize_L2(keyword_embeddings)
-            index = faiss.IndexFlatIP(keyword_embeddings.shape[1]) # Produit scalaire équivalent similarité cos
+            index = faiss.IndexFlatIP(
+                keyword_embeddings.shape[1]
+            )  # Produit scalaire équivalent similarité cos
             index.add(keyword_embeddings)
 
             faiss.write_index(index, index_path)
@@ -226,7 +244,7 @@ def filter_articles_with_faiss(
         if not text:
             continue
         # cleaned_text = preprocess_text(text)
-        
+
         article_embedding = model.encode(
             [text], convert_to_tensor=True, show_progress_bar=False
         )
@@ -234,7 +252,9 @@ def filter_articles_with_faiss(
         faiss.normalize_L2(article_embedding)  # Normaliser l'embedding de l'article
 
         # Recherche
-        similarities, indices = index.search(article_embedding, k=len(keywords)) # k = top N mot-clé le plus proche
+        similarities, indices = index.search(
+            article_embedding, k=len(keywords)
+        )  # k = top N mot-clé le plus proche
         max_similarity = similarities[0].max()  # La similarité est déjà entre 0 et 1
 
         if max_similarity >= threshold:
@@ -248,10 +268,8 @@ def filter_articles_with_faiss(
                 f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']} {article['link']}"
             )
             # article['score'] = round(max_similarity, 2)
-            article['score'] = f"{max_similarity * 100:.1f} %"
-            logger.info(
-                f"{article['title']} -> {article['score']}"
-            )
+            article["score"] = f"{max_similarity * 100:.1f} %"
+            logger.info(f"{article['title']} -> {article['score']}")
             filtered.append(article)
 
     logger.info(
@@ -260,7 +278,7 @@ def filter_articles_with_faiss(
     return filtered
 
 
-def set_prompt(theme, title, content):    
+def set_prompt(theme, title, content):
     prompt = f"""Tu es un expert en {theme}. Résume **uniquement** l'article ci-dessous en **3 phrases maximales**, en français, avec :
 1. L'information principale (qui ? quoi ?), précise s'il y a du code ou un projet avec du code.
 2. Les détails clés (chiffres, noms, dates).
@@ -317,15 +335,21 @@ Résumé :"""
 
     # **Résumé :**"""
 
+
 def _calculate_tokens(summary, elapsed):
     import tiktoken
+
     enc = tiktoken.get_encoding("cl100k_base")
     tokens = len(enc.encode(summary))
-    logger.info(f"Résumé : {tokens} tokens - débit approximatif {tokens / elapsed:.2f} tokens/s")
+    logger.info(
+        f"Résumé : {tokens} tokens - débit approximatif {tokens / elapsed:.2f} tokens/s"
+    )
+
 
 @measure_time
-def summarize_article(title, content):    
+def summarize_article(title, content):
     import time
+
     prompt = set_prompt("IA, ingénieurie logicielle et cybersécurité", title, content)
 
     if argscli.debug:
@@ -335,7 +359,7 @@ def summarize_article(title, content):
             + prompt
             + "\n---------------------------"
         )
-        start = time.time()    
+        start = time.time()
 
     # Appel au LLM
     result = llm.invoke(prompt)
@@ -353,7 +377,7 @@ def summarize_article(title, content):
             + str(result)
             + "\n---------------------------"
         )
-    
+
     # Nettoyage des introductions génériques
     for prefix in ["Voici un résumé :", "Résumé :", "L'article explique que"]:
         if summary.startswith(prefix):
@@ -378,7 +402,7 @@ def get_summary(entry: dict):
     if "content" in entry.keys():
         content: list[feedparser.FeedParserDict] = entry.get("content", [dict])
         return content[0].get("value", "Pas de résumé")
-    
+
     return entry.get("summary", "Pas de résumé")
 
 
@@ -422,7 +446,7 @@ def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_f
                 "summary": summary,
                 "link": link,
                 "published": published_time.isoformat() if published_time else None,
-                "score": "0 %"
+                "score": "0 %",
             }
         )
         recent_in_feed += 1
@@ -467,51 +491,85 @@ def fetch_rss_articles(rss_urls: list[str], max_age_days: int = 10):
     logger.debug(f"{len(articles)} articles récents récupérés")
     return articles
 
+
 # =========================
 # Nœuds du graphe
 # =========================
 
-async def unified_fetch_node(state: UnifiedState) -> UnifiedState:
+
+def create_legacy_wrapper(legacy_node_func):
+    """
+    Wrapper pour adapter les anciens nœuds RSSState vers UnifiedState
+    """
+
+    def wrapper(state: UnifiedState) -> UnifiedState:
+        # Conversion UnifiedState -> RSSState
+        legacy_state = RSSState(
+            rss_urls=[s.url for s in state.sources if s.type == SourceType.RSS],
+            keywords=state.keywords,
+            articles=state.articles,
+            filtered_articles=state.filtered_articles,
+            summaries=state.summaries,
+        )
+
+        # Appel du nœud legacy
+        result = legacy_node_func(legacy_state)
+
+        # Conversion RSSState -> UnifiedState
+        return UnifiedState(
+            sources=state.sources,  # Garde les sources originales
+            keywords=result.keywords,
+            articles=result.articles,
+            filtered_articles=result.filtered_articles,
+            summaries=result.summaries,
+        )
+
+    return wrapper
+
+
+def register_fetchers():
+    from services.factory_fetcher import FetcherFactory
+    from services.reedit_fetcher import RedditFetcher
+    from services.rss_fetcher import RSSFetcher
+    from services.models import SourceType
+
+    FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
+    # FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
+
+
+def unified_fetch_node(state: UnifiedState) -> UnifiedState:
     all_articles = []
-    
+
     # Configuration des fetchers
     fetchers = {
         SourceType.RSS: FetcherFactory.create_fetcher(SourceType.RSS),
-        SourceType.REDDIT: FetcherFactory.create_fetcher(
-            SourceType.REDDIT,
-            client_id="your_reddit_client_id",
-            client_secret="your_reddit_client_secret",
-            user_agent="your_app_name v1.0"
-        )
+        # SourceType.REDDIT: FetcherFactory.create_fetcher(
+        #     SourceType.REDDIT,
+        #     client_id="your_reddit_client_id",
+        #     client_secret="your_reddit_client_secret",
+        #     user_agent="your_app_name v1.0"
+        # )
     }
-    
+
     for source in state.sources:
         try:
             fetcher = fetchers.get(source.type)
             if fetcher:
-                articles = await fetcher.fetch_articles(source, max_days=7)
+                articles = fetcher.fetch_articles(source, max_days=MAX_DAYS)
                 all_articles.extend(articles)
-                print(f"Fetched {len(articles)} articles from {source.name or source.url}")
+                logger.info(
+                    f"{len(articles)} articles récents de {source.name or source.url}"
+                )
         except Exception as e:
-            print(f"Error fetching from {source.url}: {e}")
-    
+            logger.error(f"Error fetching from {source.url}: {e}")
 
     return UnifiedState(
         sources=state.sources,
         keywords=state.keywords,
         articles=all_articles,
         filtered_articles=state.filtered_articles,
-        summaries=state.summaries
+        summaries=state.summaries,
     )
-
-def fetch_node(state: RSSState) -> RSSState:
-    logger.info("📥 Récupération des articles...")
-
-    articles = fetch_rss_articles(state.rss_urls, MAX_DAYS)
-    logger.info(f"{len(articles)} articles récupérés")
-    logger.info(f"{articles[0]['title']} {articles[0]['score']}")
-     
-    return state.model_copy(update={"articles": articles})
 
 
 def filter_node(state: UnifiedState) -> RSSState:
@@ -527,8 +585,10 @@ def filter_node(state: UnifiedState) -> RSSState:
 
     return state.model_copy(update={"filtered_articles": filtered})
 
+
 def summarize_node(state: RSSState) -> RSSState:
     from datetime import datetime, timezone
+
     logger.info("✏️  Résumé des articles filtrés...")
     LIMIT_ARTICLES_TO_RESUME = int(os.getenv("LIMIT_ARTICLES_TO_RESUME", -1))
     if LIMIT_ARTICLES_TO_RESUME > 0:
@@ -547,14 +607,14 @@ def summarize_node(state: RSSState) -> RSSState:
             "link": article["link"],
             "score": article["score"],
             "published": article["published"],
-            "dt_created": datetime.now(timezone.utc)
+            "dt_created": datetime.now(timezone.utc),
         }
         summaries.append(summary)
         logger.info(f"Ajout du résumé {summary}")
     return state.model_copy(update={"summaries": summaries})
 
 
-def output_node(state: RSSState) -> RSSState:    
+def output_node(state: RSSState) -> RSSState:
     logger.info("📄 Affichage des résultats finaux")
     for item in state.summaries:
         print(
@@ -570,47 +630,56 @@ def output_node(state: RSSState) -> RSSState:
         )
     return state
 
+
 def send_articles(state: RSSState) -> RSSState:
     from send_articles_email import send_watch_articles
-    from models.emails import EmailTemplateParams    
+    from models.emails import EmailTemplateParams
+
     logger.info("Envoi mail des articles")
     logger.info(f"Envoi de {len(state.summaries)} articles")
     if len(state.summaries) > 0:
         _params_mail = EmailTemplateParams(
             articles=state.summaries,
             keywords=state.keywords,
-            threshold=THRESHOLD_SEMANTIC_SEARCH
+            threshold=THRESHOLD_SEMANTIC_SEARCH,
         )
-        send_watch_articles(_params_mail)    
+        send_watch_articles(_params_mail)
     return state
+
 
 def save_articles(state: RSSState) -> RSSState:
     from db.db import save_to_db
-    logger.info("Sauvegarde des articles résumés en DB")    
+
+    logger.info("Sauvegarde des articles résumés en DB")
     if len(state.summaries) > 0:
         save_to_db(state.summaries)
     return state
+
 
 # =========================
 # Construction du graphe : noeuds (nodes) et transitions (edges)
 # fetch -> filter -> summarize -> output
 # =========================
-def make_graph():        
+def make_graph():
     # graph = StateGraph(RSSState)
     # graph.add_node("fetch", RunnableLambda(fetch_node))
-    
+
     graph = StateGraph(UnifiedState)
     graph.add_node("fetch", RunnableLambda(unified_fetch_node))
-    graph.add_node("filter", RunnableLambda(filter_node))
-    graph.add_node("summarize", RunnableLambda(summarize_node))
-    graph.add_node("displayoutput", RunnableLambda(output_node))
-    graph.add_node("savedbsummaries", RunnableLambda(save_articles))
-    graph.add_node("sendsummaries", RunnableLambda(send_articles))        
+    graph.add_node("filter", RunnableLambda(create_legacy_wrapper(filter_node)))
+    graph.add_node("summarize", RunnableLambda(create_legacy_wrapper(summarize_node)))
+    graph.add_node("displayoutput", RunnableLambda(create_legacy_wrapper(output_node)))
+    graph.add_node(
+        "savedbsummaries", RunnableLambda(create_legacy_wrapper(save_articles))
+    )
+    graph.add_node(
+        "sendsummaries", RunnableLambda(create_legacy_wrapper(send_articles))
+    )
 
     graph.set_entry_point("fetch")
     graph.add_edge("fetch", "filter")
     graph.add_edge("filter", "summarize")
-    graph.add_edge("summarize", "displayoutput")    
+    graph.add_edge("summarize", "displayoutput")
     graph.add_edge("displayoutput", "savedbsummaries")
     graph.add_edge("savedbsummaries", "sendsummaries")
 
@@ -624,29 +693,35 @@ def get_rss_urls():
     """
     logger.info("Obtention des URL RSS à traiter...")
     rss_list_opml = parse_opml_to_rss_list(OPML_FILE)
-    feeds: list[Source] = []
-    for feed in rss_list_opml:
-        logger.info(f"Flux RSS : {feed.titre} - {feed.lien_rss} - {feed.lien_web}")
-        feeds.append(
-            Source(type=SourceType.RSS, name=feed.titre, url=feed.lien_rss, link=feed.lien_web))
-    # return [feed.lien_rss for feed in rss_list_opml]
-    return feeds
+
+    return [
+        Source(
+            type=SourceType.RSS, name=feed.titre, url=feed.lien_rss, link=feed.lien_web
+        )
+        for feed in rss_list_opml
+        if (
+            logger.debug(f"Flux RSS : {feed.titre} - {feed.lien_rss} - {feed.lien_web}")
+            or True
+        )
+    ]
+
 
 def _show_graph(graph):
     """Affichage du graphe / automate LangGraph qui est utilisé"""
+
     def _get_graph(_graph):
         return _graph.get_graph()
-    
+
     def _display_graph_matplot(_graph):
         import matplotlib.pyplot as plt
         import matplotlib.image as mpimg
         import io
-        
+
         # plt.ion()
         png_data = _get_graph(_graph).draw_mermaid_png()
-        img = mpimg.imread(io.BytesIO(png_data), format='PNG')
+        img = mpimg.imread(io.BytesIO(png_data), format="PNG")
         plt.imshow(img)
-        plt.axis('off')
+        plt.axis("off")
         plt.show()
         plt.pause(0.001)
 
@@ -655,28 +730,22 @@ def _show_graph(graph):
 
     def _display_device(_graph):
         from IPython.display import Image, display
-        display(Image(_get_graph(_graph).draw_mermaid_png()))    
+
+        display(Image(_get_graph(_graph).draw_mermaid_png()))
 
     try:
         # _display_graph_matplot(graph)
         _display_graph_ascii(graph)
     except Exception as e:
-        logger.error(f"{e}")        
-        
-def create_fetchers():    
-    from services.factory_fetcher import FetcherFactory
-    from services.reedit_fetcher import RedditFetcher
-    from services.rss_fetcher import RSSFetcher
-    from services.models import SourceType
+        logger.error(f"{e}")
 
-    FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
-    # FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
 
 # =========================
 # Main
 # =========================
 def main():
     from db.db import init_db
+
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")
     logger.info(
         Fore.YELLOW
@@ -684,16 +753,16 @@ def main():
         + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE} sur les {MAX_DAYS} derniers jours"
     )
     logger.info(Fore.YELLOW + f"Initialisation DB")
-    init_db()    
+    init_db()
 
-    create_fetchers()
+    register_fetchers()
     rss_urls = get_rss_urls()
     logger.info(f"{len(rss_urls)} flux RSS à traiter")
     initial_state = UnifiedState(
         sources=rss_urls,
         keywords=FILTER_KEYWORDS
         if FILTER_KEYWORDS != [""]
-        else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"]
+        else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],
     )
 
     agent = make_graph()
@@ -702,23 +771,25 @@ def main():
         _show_graph(agent)
     agent.invoke(initial_state)
 
-    # rss_urls = get_rss_urls()        
+    # rss_urls = get_rss_urls()
     # state = RSSState(
     #     rss_urls=rss_urls,
     #     keywords=FILTER_KEYWORDS
     #     if FILTER_KEYWORDS != [""]
     #     else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],
     # )
-    # agent.invoke(state)    
+    # agent.invoke(state)
+
 
 def search():
-    from db.db import search_fts, recreate_fts_table, read_articles, save_to_fts, init_db
-    # from db.db import init_db, search_fts, recreate_fts_table
-    init_db()
-    # recreate_fts_table()
-    # articles = read_articles()
-    # save_to_fts(articles)
-    search_fts("python")    
+    from db.db import (
+        search_fts,              
+        init_db,
+    )
+    
+    init_db()    
+    search_fts("python")
+
 
 if __name__ == "__main__":
     main()

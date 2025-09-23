@@ -76,17 +76,17 @@ class RSSFetcher(BaseFetcher):
         return recent_in_feed
 
 
-    async def fetch_articles(self, source: Source, max_age_days: int) -> list[dict]:
+    def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
         """Votre logique RSS existante"""
         AGENT = "ReaderRSS/1.0"
         RESOLVE_RELATIVE_URIS = False
         SANITIZE_HTML = True
         articles = []
-        cutoff_date = datetime.now() - timedelta(days=max_age_days)
-        logger.info(f"seuil date : {cutoff_date}")
+        cutoff_date = datetime.now() - timedelta(days=max_days)
+        logger.info(f"seuil date : {max_days} -> {cutoff_date}")
 
         # for url in rss_urls:
-        logger.info(Fore.BLUE + f"Lecture du flux RSS : {url}")
+        logger.info(Fore.BLUE + f"Lecture du flux RSS : {source.url}")
         feed = feedparser.parse(
             source.url,
             resolve_relative_uris=RESOLVE_RELATIVE_URIS,
@@ -107,22 +107,22 @@ class RSSFetcher(BaseFetcher):
         logger.debug(f"{len(articles)} articles récents récupérés")
         return articles
     
-        feed = feedparser.parse(source.url)
-        articles = []
+        # feed = feedparser.parse(source.url)
+        # articles = []
         
-        cutoff_date = datetime.now() - timedelta(days=max_days)
+        # cutoff_date = datetime.now() - timedelta(days=max_days)
         
-        for entry in feed.entries:
-            # Logique existante adaptée
-            pub_date = datetime.fromtimestamp(entry.published_parsed)
-            if pub_date > cutoff_date:
-                articles.append({
-                    'title': entry.title,
-                    'content': entry.summary,
-                    'link': entry.link,
-                    'published': pub_date.isoformat(),
-                    'source_type': 'rss',
-                    'source_name': source.name or feed.feed.title
-                })
+        # for entry in feed.entries:
+        #     # Logique existante adaptée
+        #     pub_date = datetime.fromtimestamp(entry.published_parsed)
+        #     if pub_date > cutoff_date:
+        #         articles.append({
+        #             'title': entry.title,
+        #             'content': entry.summary,
+        #             'link': entry.link,
+        #             'published': pub_date.isoformat(),
+        #             'source_type': 'rss',
+        #             'source_name': source.name or feed.feed.title
+        #         })
         
-        return articles
+        # return articles

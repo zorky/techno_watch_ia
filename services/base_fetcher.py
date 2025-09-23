@@ -3,5 +3,5 @@ from services.models import Source
 
 class BaseFetcher(ABC):
     @abstractmethod
-    async def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
+    def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
         pass
