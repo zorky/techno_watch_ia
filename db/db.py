@@ -51,17 +51,53 @@ def update_timestamp(mapper, connection, target):
 class ArticleFTS:
     """Modèle pour la table FTS5 Full Text Search"""
     __tablename__ = 'articles_fts'
+
     @classmethod
     def execute_statement(cls, conn, statement):
         conn.execute(statement)
         conn.commit()
 
     @classmethod
+    def create_trigger_if_not_exists(cls, conn, trigger_name, trigger_sql):
+        # Vérifier si le trigger existe déjà
+        result = conn.execute(text(f"""
+            SELECT name FROM sqlite_master
+            WHERE type='trigger' AND name='{trigger_name}'
+        """)).fetchone()
+
+        if not result:
+            conn.execute(text(trigger_sql))
+            conn.commit()
+
+    @classmethod
     def init_table(cls, engine):                
         """Crée la table FTS5 manuellement."""
+        triggers = {
+            "sync_article_fts": f"""
+                CREATE TRIGGER sync_article_fts AFTER INSERT ON {Article.__tablename__}
+                BEGIN
+                    INSERT INTO {cls.__tablename__}(article_id, title, content)
+                    VALUES (new.id, new.title, new.summary);
+                END;
+            """,
+            "sync_article_update": f"""
+                CREATE TRIGGER sync_article_update AFTER UPDATE ON {Article.__tablename__}
+                BEGIN
+                    UPDATE {cls.__tablename__}
+                    SET title = new.title, content = new.summary
+                    WHERE article_id = new.id;
+                END;
+            """,
+            "sync_article_delete": f"""
+                CREATE TRIGGER sync_article_delete AFTER DELETE ON {Article.__tablename__}
+                BEGIN
+                    DELETE FROM {cls.__tablename__} WHERE article_id = old.id;
+                END;
+            """
+        }        
+        
         with engine.connect() as conn:        
-            cls.execute_statement(conn, text(f"""
-                -- DROP TABLE IF EXISTS articles_fts;
+            cls.execute_statement(conn, text(f"""                
                 CREATE VIRTUAL TABLE IF NOT EXISTS {cls.__tablename__} USING fts5(
                     article_id,
                     title,
@@ -70,29 +106,8 @@ class ArticleFTS:
                     prefix='2,3'
                 );                                               
                 """))
-            cls.execute_statement(conn, text(f"""
-            -- Trigger pour l'insertion
-                CREATE TRIGGER sync_article_fts AFTER INSERT ON {Article.__tablename__}
-                BEGIN
-                    INSERT INTO {cls.__tablename__}(article_id, title, content) VALUES (new.id, new.title, new.summary);
-                END;
-            """))
-            cls.execute_statement(conn, text(f"""
-            -- Trigger pour la mise à jour
-                CREATE TRIGGER sync_article_update AFTER UPDATE ON {Article.__tablename__}
-                BEGIN
-                    UPDATE {cls.__tablename__}
-                    SET title = new.title, content = new.summary
-                    WHERE article_id = new.id;
-                END;
-            """))
-            cls.execute_statement(conn, text(f"""
-            -- Trigger pour la suppression
-                CREATE TRIGGER sync_article_delete AFTER DELETE ON {Article.__tablename__}
-                BEGIN
-                    DELETE FROM {cls.__tablename__} WHERE article_id = old.id;
-                END;
-            """))            
+            for name, sql in triggers.items():
+                cls.create_trigger_if_not_exists(conn, name, sql)            
 
     @classmethod
     def insert(cls, session, title, content, published):
