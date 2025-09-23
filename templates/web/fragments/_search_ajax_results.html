@@ -1,0 +1,26 @@
+<!-- templates/fragments/_search_ajax_results.html -->
+ <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-gray-200 pb-2">
+    Résultats de la recherche : {{ articles | length }} article{% if articles | length > 1 %}s{% endif %} trouvé{% if articles | length > 1 %}s{% endif %}
+</h2>
+ {% if articles | length > 0 %}
+    {% for article in articles %}
+        <div class="bg-white mb-5 p-5 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+            <h3 class="text-lg font-bold text-gray-800 mt-0 flex items-center gap-2">
+                <i class="fas fa-link text-blue-500"></i>        
+                <a href="{{ article.link }}" target="_blank" class="hover:text-blue-700">
+                    {{ article.title | safe}}
+                </a>
+            </h3>
+            <p class="text-gray-500 my-2 text-sm">
+                article publié le {{ article.published | format_date}} -
+                score: {{ "%.1f"|format(article.score ) }}%
+            </p>
+            <p class="text-sm text-gray-700 mt-2.5 pl-6 relative">
+                <i class="fas fa-newspaper text-blue-500 absolute left-0"></i>
+                {{ article.summary | nl2br | safe }}          
+            </p>
+        </div>
+    {% endfor %}
+{% else %}
+    <p><mark>Aucun résultat trouvé</mark></p>
+{% endif %}

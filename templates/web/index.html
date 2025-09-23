@@ -3,70 +3,123 @@
 <head>
     <title>Revue de Presse Techno</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="/static/styles.css">
+    <!-- Tailwind CSS (via CDN) -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Font Awesome pour les icônes -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Petit CSS complémentaire (minimal) pour les animations/transitions -->
+    <style>
+        /* Animations non couvertes par Tailwind */
+        li:hover {
+            transform: translateY(-2px);
+        }
+        .back-to-top {
+            transition: all 0.3s ease;
+        }
+        .toc-header h2 {
+            transition: all 0.2s ease;
+        }
+    </style>
 </head>
-<body>
-    <header>
-        <h1>Revue de veille techno</h1>
-        <p class="subtitle">Les dernières actualités</p>
+<body class="font-sans text-gray-800 max-w-2xl mx-auto my-5 px-5 bg-gray-50">
+    <header class="mb-8">
+        <h1 class="text-3xl text-center text-gray-800 border-b-2 border-blue-500 pb-2.5">
+            Revue de veille techno
+        </h1>
+        <p class="text-xl text-center text-gray-500 pb-5">
+            Les dernières actualités
+        </p>
     </header>
-    <form method="get">
-        <label for="date">Filtrer par date de publication :</label>
-        <input type="date" id="date" name="date">
-        <button type="submit"><i class="fas fa-filter"></i> Filtrer</button>
-    </form>
-    <div id="top"></div>
-    <!-- Sommaire -->
-    <div class="toc-container">
-        <div class="toc-header" onclick="toggleTOC()">
-            <h2>Sommaire ▶</h2>
-        </div>
-        <ol class="table-of-contents" style="display: none;">  <!-- Masqué par défaut -->
-            {% for article in articles %}
-            <li>
-            <a href="#article-{{ loop.index }}">{{ article.title }}</a>
-            </li>
-            {% endfor %}
-        </ol>
-    </div>
-    <!-- Liste des articles avec IDs et ancres -->
-    <ul>
+
+    <!-- Recherche plein texte (FTS) -->
+     {% include 'fragments/_search_banner.html' %}    
+
+    <!-- Filtrage par date -->
+     {% include 'fragments/_dates_filters.html' %} 
+
+    <!-- Résultats search fetch AJAX (sera rempli dynamiquement avec le fragmant _search_ajax_results.html) -->
+    <div id="results" class="mb-6"></div>
+
+    <div id="top" class="scroll-mt-20"></div> <!-- Offset pour le scroll -->
+
+    <!-- Sommaire (TOC) -->     
+    {% with articles=articles %}
+        {% include 'fragments/_toc.html' %}
+    {% endwith %}
+
+    <!-- Liste des articles -->
+    <ul class="list-none p-0">
         {% for article in articles %}
-        <li id="article-{{ loop.index }}">
-            <h2>
-                <a href="#top" class="back-to-top">↑</a>  <!-- Lien pour remonter -->
-                <i class="fas fa-link"></i>
-                <a href="{{ article.link }}" target="_blank">{{ article.title }}</a>
+        <li
+            id="article-{{ loop.index }}"
+            class="bg-white mb-5 p-5 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
+        >
+            <h2 class="text-xl font-bold text-gray-800 mt-0 flex items-center gap-2">
+                <a href="#top" class="back-to-top text-blue-500 hover:text-blue-700">↑</a>
+                <i class="fas fa-link text-blue-500"></i>
+                <a href="{{ article.link }}" target="_blank" class="hover:text-blue-700">
+                    {{ article.title }}
+                </a>
             </h2>
-            <h3><small>
-                article publié le {{ article.published | format_date }} -
-                résumé du {{ article.dt_created | format_local_datetime }} -
-                score: {{ article.score }}
-            </small></h3>
-            <p class="article-summary">
-                <i class="fas fa-newspaper"></i>
+            <h3 class="m-0">
+                <small class="text-gray-500 block my-2">
+                    article publié le {{ article.published | format_date }} -
+                    résumé du {{ article.dt_created | format_local_datetime }} -
+                    score: {{ article.score }}
+                </small>
+            </h3>
+            <p class="article-summary text-gray-700 mt-2.5 pl-6 relative">
+                <i class="fas fa-newspaper text-blue-500 absolute left-0"></i>
                 {{ article.summary | nl2br | safe }}
             </p>
         </li>
         {% endfor %}
-    </ul>    
-    <footer>
+    </ul>
+
+    <footer class="mt-10 text-center text-gray-500">
         <p>© 2025 - Veille Techno RSS</p>
     </footer>
-<script>
-    function toggleTOC() {
-        const toc = document.querySelector('.table-of-contents');
-        const header = document.querySelector('.toc-header h2');
 
-        if (toc.style.display === 'none') {
-            toc.style.display = 'block';
-            header.textContent = 'Sommaire ▼';
-        } else {
-            toc.style.display = 'none';
-            header.textContent = 'Sommaire ▶';
+    <script>
+        // Affiche on/off le sommaine
+        function toggleTOC() {
+            const toc = document.getElementById('toc-list');
+            const header = document.querySelector('.toc-header h2');
+            if (toc.classList.contains('hidden')) {
+                toc.classList.remove('hidden');
+                header.textContent = 'Sommaire ▼';
+            } else {
+                toc.classList.add('hidden');
+                header.textContent = 'Sommaire ▶';
+            }
         }
-    }
-</script>
+
+        function _setResponses(data) {
+            document.getElementById('results').innerHTML = data;
+        }
+        // Recherche AJAX par fetch
+        document.querySelector('form[action="/search"]').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            formData.append('ajax', 'true');
+
+            const response = await fetch(`/search?${new URLSearchParams(formData)}`);
+            if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    if (data.error) {                        
+                        _setResponses(data.error);                        
+                    } else {
+                        _setResponses(await response.text());                        
+                    }
+                } else {
+                    _setResponses(await response.text());                    
+                }
+            } else {
+                console.error('Erreur lors de la recherche');
+            }
+        });
+    </script>
 </body>
 </html>
