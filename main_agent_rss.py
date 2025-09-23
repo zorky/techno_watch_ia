@@ -73,6 +73,8 @@ from read_opml import parse_opml_to_rss_list
 from bs4 import BeautifulSoup
 
 from core import measure_time, argscli
+from services.factory_fetcher import FetcherFactory
+from services.models import Source, SourceType, UnifiedState
 
 # =========================
 # Configuration du modèle LLM et configurations recherche
@@ -468,6 +470,40 @@ def fetch_rss_articles(rss_urls: list[str], max_age_days: int = 10):
 # =========================
 # Nœuds du graphe
 # =========================
+
+async def unified_fetch_node(state: UnifiedState) -> UnifiedState:
+    all_articles = []
+    
+    # Configuration des fetchers
+    fetchers = {
+        SourceType.RSS: FetcherFactory.create_fetcher(SourceType.RSS),
+        SourceType.REDDIT: FetcherFactory.create_fetcher(
+            SourceType.REDDIT,
+            client_id="your_reddit_client_id",
+            client_secret="your_reddit_client_secret",
+            user_agent="your_app_name v1.0"
+        )
+    }
+    
+    for source in state.sources:
+        try:
+            fetcher = fetchers.get(source.type)
+            if fetcher:
+                articles = await fetcher.fetch_articles(source, max_days=7)
+                all_articles.extend(articles)
+                print(f"Fetched {len(articles)} articles from {source.name or source.url}")
+        except Exception as e:
+            print(f"Error fetching from {source.url}: {e}")
+    
+
+    return UnifiedState(
+        sources=state.sources,
+        keywords=state.keywords,
+        articles=all_articles,
+        filtered_articles=state.filtered_articles,
+        summaries=state.summaries
+    )
+
 def fetch_node(state: RSSState) -> RSSState:
     logger.info("📥 Récupération des articles...")
 
@@ -478,7 +514,7 @@ def fetch_node(state: RSSState) -> RSSState:
     return state.model_copy(update={"articles": articles})
 
 
-def filter_node(state: RSSState) -> RSSState:
+def filter_node(state: UnifiedState) -> RSSState:
     logger.info("🔍 Filtrage des articles par mots-clés...")
 
     filtered = filter_articles_with_faiss(
@@ -559,9 +595,12 @@ def save_articles(state: RSSState) -> RSSState:
 # Construction du graphe : noeuds (nodes) et transitions (edges)
 # fetch -> filter -> summarize -> output
 # =========================
-def make_graph():
-    graph = StateGraph(RSSState)
-    graph.add_node("fetch", RunnableLambda(fetch_node))
+def make_graph():        
+    # graph = StateGraph(RSSState)
+    # graph.add_node("fetch", RunnableLambda(fetch_node))
+    
+    graph = StateGraph(UnifiedState)
+    graph.add_node("fetch", RunnableLambda(unified_fetch_node))
     graph.add_node("filter", RunnableLambda(filter_node))
     graph.add_node("summarize", RunnableLambda(summarize_node))
     graph.add_node("displayoutput", RunnableLambda(output_node))
@@ -583,8 +622,15 @@ def get_rss_urls():
     Obtient la liste des URL RSS à traiter à partir des variables d'environnement.
     Le .env ne contient que des types string et au format JSON
     """
+    logger.info("Obtention des URL RSS à traiter...")
     rss_list_opml = parse_opml_to_rss_list(OPML_FILE)
-    return [feed.lien_rss for feed in rss_list_opml]
+    feeds: list[Source] = []
+    for feed in rss_list_opml:
+        logger.info(f"Flux RSS : {feed.titre} - {feed.lien_rss} - {feed.lien_web}")
+        feeds.append(
+            Source(type=SourceType.RSS, name=feed.titre, url=feed.lien_rss, link=feed.lien_web))
+    # return [feed.lien_rss for feed in rss_list_opml]
+    return feeds
 
 def _show_graph(graph):
     """Affichage du graphe / automate LangGraph qui est utilisé"""
@@ -640,20 +686,30 @@ def main():
     logger.info(Fore.YELLOW + f"Initialisation DB")
     init_db()    
 
-    # create_fetchers()
+    create_fetchers()
+    rss_urls = get_rss_urls()
+    logger.info(f"{len(rss_urls)} flux RSS à traiter")
+    initial_state = UnifiedState(
+        sources=rss_urls,
+        keywords=FILTER_KEYWORDS
+        if FILTER_KEYWORDS != [""]
+        else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"]
+    )
 
     agent = make_graph()
     if argscli.debug:
         logger.info(f"🤖 LangGraph déroulera cet automate...")
         _show_graph(agent)
-    rss_urls = get_rss_urls()        
-    state = RSSState(
-        rss_urls=rss_urls,
-        keywords=FILTER_KEYWORDS
-        if FILTER_KEYWORDS != [""]
-        else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],
-    )
-    agent.invoke(state)
+    agent.invoke(initial_state)
+
+    # rss_urls = get_rss_urls()        
+    # state = RSSState(
+    #     rss_urls=rss_urls,
+    #     keywords=FILTER_KEYWORDS
+    #     if FILTER_KEYWORDS != [""]
+    #     else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],
+    # )
+    # agent.invoke(state)    
 
 def search():
     from db.db import search_fts, recreate_fts_table, read_articles, save_to_fts, init_db

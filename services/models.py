@@ -12,6 +12,7 @@ class SourceType(str, Enum):
 class Source(BaseModel):
     type: SourceType
     url: str
+    link: Optional[str] = None  # lien Web associé
     name: Optional[str] = None
     # Paramètres spécifiques Reddit
     subreddit: Optional[str] = None
