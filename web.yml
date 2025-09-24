@@ -2,7 +2,7 @@ services:
   fastapi-app:
     build:
       context: .
-      dockerfile: Dockerfile.web
+      dockerfile: docker/Dockerfile.web
     container_name: techno-watch-web
     ports:
       - "8000:8000"

@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copie le fichier requirements.txt (à créer)
-COPY requirements-web.txt .
+COPY docker/requirements-web.txt .
 
 # Installe les dépendances Python
 RUN pip install --no-cache-dir -r requirements-web.txt
