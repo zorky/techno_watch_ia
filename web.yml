@@ -1,0 +1,17 @@
+services:
+  fastapi-app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    container_name: techno-watch-web
+    ports:
+      - "8000:8000"
+    environment:      
+      - DB_PATH=/app/data/techno-watch.db
+    volumes:
+      # Monte un volume pour la base de données (persistance)
+      # - .:/app      
+      - ./data:/app/data    
+    restart: unless-stopped
+    # Pour le développement avec hot reload, décommentez et modifiez la commande
+    # command: uvicorn web:app --host 0.0.0.0 --port 8000 --reload

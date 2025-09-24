@@ -1,0 +1,35 @@
+# Fichiers à ignorer lors du build Docker
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Environnements virtuels Python
+venv/
+env/
+.venv/
+
+# Fichiers Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Base de données locale (si vous ne voulez pas l'inclure dans l'image)
+*.db
