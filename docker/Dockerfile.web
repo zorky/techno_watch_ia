@@ -1,0 +1,35 @@
+# Utilise une image Python officielle comme base
+FROM python:3.11-slim
+
+# Définit le répertoire de travail dans le conteneur
+WORKDIR /app
+
+# Installe les dépendances système nécessaires
+RUN apt-get update && apt-get install -y \
+    gcc \
+    bash \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crée un utilisateur non root "appuser"
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Copie le fichier requirements.txt (à créer)
+COPY docker/requirements-web.txt .
+
+# Installe les dépendances Python
+RUN pip install --no-cache-dir -r requirements-web.txt
+
+# Copie tout le code source
+COPY . .
+
+# Donne les droits à l'utilisateur non root
+RUN chown -R appuser:appuser /app
+
+# Passe à l'utilisateur non root
+USER appuser
+
+# Expose le port 8000
+EXPOSE 8000
+
+# Commande par défaut pour lancer l'application
+CMD ["uvicorn", "web:app", "--host", "0.0.0.0", "--port", "8000"]
