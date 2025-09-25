@@ -533,22 +533,25 @@ def register_fetchers():
     from services.rss_fetcher import RSSFetcher
     from services.models import SourceType
 
-    FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
-    # FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
+    # FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
+    FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
 
 
 def unified_fetch_node(state: UnifiedState) -> UnifiedState:
+    REDDIT_CLIENT_ID = os.getenv('REDDIT_CLIENT_ID', None)
+    REDDIT_CLIENT_SECRET = os.getenv('REDDIT_CLIENT_SECRET', None)
+
     all_articles = []
 
     # Configuration des fetchers
     fetchers = {
-        SourceType.RSS: FetcherFactory.create_fetcher(SourceType.RSS),
-        # SourceType.REDDIT: FetcherFactory.create_fetcher(
-        #     SourceType.REDDIT,
-        #     client_id="your_reddit_client_id",
-        #     client_secret="your_reddit_client_secret",
-        #     user_agent="your_app_name v1.0"
-        # )
+        # SourceType.RSS: FetcherFactory.create_fetcher(SourceType.RSS),
+        SourceType.REDDIT: FetcherFactory.create_fetcher(
+            SourceType.REDDIT,
+            client_id=REDDIT_CLIENT_ID,
+            client_secret=REDDIT_CLIENT_SECRET,
+            user_agent="TechnoWatch 1.0"
+        )
     }
 
     for source in state.sources:
