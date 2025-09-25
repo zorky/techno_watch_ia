@@ -533,7 +533,7 @@ def register_fetchers():
     from services.rss_fetcher import RSSFetcher
     from services.models import SourceType
 
-    # FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
+    FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
     FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
 
 
@@ -545,7 +545,7 @@ def unified_fetch_node(state: UnifiedState) -> UnifiedState:
 
     # Configuration des fetchers
     fetchers = {
-        # SourceType.RSS: FetcherFactory.create_fetcher(SourceType.RSS),
+        SourceType.RSS: FetcherFactory.create_fetcher(SourceType.RSS),
         SourceType.REDDIT: FetcherFactory.create_fetcher(
             SourceType.REDDIT,
             client_id=REDDIT_CLIENT_ID,
@@ -582,9 +582,6 @@ def filter_node(state: UnifiedState) -> RSSState:
         state.articles, state.keywords, threshold=THRESHOLD_SEMANTIC_SEARCH
     )
     logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
-
-    # filtered = filter_articles_with_tfidf(state.articles, state.keywords, threshold=0.3)
-    # logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
 
     return state.model_copy(update={"filtered_articles": filtered})
 
@@ -708,7 +705,70 @@ def get_rss_urls():
         )
     ]
 
+def load_sources_from_config(config_path: str, type_source: SourceType) -> list[Source]:
+    """
+    Support pour un fichier JSON qui peut inclure Reddit et Bluesky
+    Exemple de structure :
+    {
+        "sources": [            
+            {
+                "type": "reddit",
+                "subreddit": "MachineLearning",
+                "name": "ML Reddit",
+                "sort_by": "hot",
+                "time_filter": "day"
+            },
+            {
+                "type": "bluesky",
+                "url": "@user.bsky.social",
+                "name": "Tech Expert"
+            },
+            {
+                "type": "bluesky",
+                "url": "firehose",
+                "name": "Bluesky Public Feed"
+            }
+        ]
+    }
+    """
+    import json
+    
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+    
+    sources = []
+    for source_config in config.get('sources', []):
+        if source_config['type'] == type_source.REDDIT:
+            sources.append(Source(
+                type=SourceType.REDDIT,
+                url=f"reddit.com/r/{source_config['subreddit']}",
+                name=source_config.get('name'),
+                subreddit=source_config['subreddit'],
+                sort_by=source_config.get('sort_by', 'hot'),
+                time_filter=source_config.get('time_filter', 'day')
+            ))
+        elif source_config['type'] == type_source.BLUESKY:
+            sources.append(Source(
+                type=SourceType.BLUESKY,
+                url=source_config['url'],
+                name=source_config.get('name')
+            ))
+        # else:  # RSS
+        #     sources.append(Source(
+        #         type=SourceType.RSS,
+        #         url=source_config['url'],
+        #         name=source_config.get('name')
+        #     ))
+    
+    return sources
 
+def get_subs_reddit_urls():
+    """
+    Obtient la liste des URL Reddit à traiter à partir du fichier myreddit.json
+    """    
+    MY_REDDIT_FILE = os.getenv("REDDIT_FILE", "myreddit.json")    
+    return load_sources_from_config(MY_REDDIT_FILE, SourceType.REDDIT)
+    
 def _show_graph(graph):
     """Affichage du graphe / automate LangGraph qui est utilisé"""
 
@@ -744,10 +804,14 @@ def _show_graph(graph):
 
 def prepare_data():
     register_fetchers()
-    rss_urls = get_rss_urls()
-    logger.info(f"{len(rss_urls)} flux RSS à traiter")
+    
+    sources_urls = get_rss_urls()
+    reddit_subs= get_subs_reddit_urls()
+    sources_urls.extend(reddit_subs)
+
+    logger.info(f"{len(sources_urls)} flux RSS à traiter")
     initial_state = UnifiedState(
-        sources=rss_urls,
+        sources=sources_urls,
         keywords=FILTER_KEYWORDS
         if FILTER_KEYWORDS != [""]
         else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],

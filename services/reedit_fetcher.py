@@ -1,8 +1,12 @@
 import praw
 from datetime import datetime, timedelta
+import logging
 
 from services.base_fetcher import BaseFetcher
 from services.models import Source
+
+logging.basicConfig(level=logging.INFO)
+from core.logger import logger
 
 class RedditFetcher(BaseFetcher):
     def __init__(self, client_id: str, client_secret: str, user_agent: str):
@@ -12,11 +16,11 @@ class RedditFetcher(BaseFetcher):
             user_agent=user_agent
         )
     
-    async def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
+    def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
         articles = []
-        cutoff_date = datetime.now() - timedelta(days=max_days)
-        
+        cutoff_date = datetime.now() - timedelta(days=max_days)        
         subreddit = self.reddit.subreddit(source.subreddit)
+        logger.info(f"Fetch des posts du sub r/{source.subreddit} (cutoff date: {cutoff_date})")        
         
         # Récupération selon le tri choisi
         if source.sort_by == "hot":
@@ -49,7 +53,7 @@ class RedditFetcher(BaseFetcher):
                 
                 articles.append({
                     'title': post.title,
-                    'content': content,
+                    'summary': content,
                     'link': f"https://reddit.com{post.permalink}",
                     'published': post_date.isoformat(),
                     'source_type': 'reddit',
@@ -57,5 +61,6 @@ class RedditFetcher(BaseFetcher):
                     'score': post.score,
                     'num_comments': post.num_comments
                 })
-        
+        logger.info(f"{len(articles)} articles récents récupérés de r/{source.subreddit}")  
+
         return articles
