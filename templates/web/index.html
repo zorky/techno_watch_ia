@@ -73,7 +73,9 @@
                     </a>
                 </div>
                 <div class="ml-auto">
-                    {{ article.source.value | icon_html(size=20) }}
+                    {% with article=article, email=false%}
+                        {% include 'fragments/_icon_brand.html' %}
+                    {% endwith %}                    
                 </div>
             </h2>
             <h3 class="m-0">

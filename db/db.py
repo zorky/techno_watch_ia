@@ -190,7 +190,8 @@ class ArticleFTS:
                 ranked.content as content,  
                 a.link as link,
                 a.published as published,                                                
-                ROUND(100.0 * ranked.score / (SELECT MAX(ranked.score) FROM ranked), 2) AS rank
+                ROUND(100.0 * ranked.score / (SELECT MAX(ranked.score) FROM ranked), 2) AS rank,
+                a.source as source
             FROM ranked
             JOIN {Article.__tablename__} a on a.id = ranked.article_id
         """

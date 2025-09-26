@@ -51,8 +51,7 @@ def icon_html(source: SourceType, size: int = 24, email: bool = False) -> str:
         source: Type de source ("bluesky", "reddit", "rss", "linkedin", "twitter").
         size: Taille en pixels (défaut: 24).
         email: Si True, retourne une balise <img> avec SVG en base64.
-    """
-    import os    
+    """    
     logging.info(f"icon_html: source={source}, size={size}, email={email}")
 
     icon_path = Path(__file__).parent / "templates" / "web" / "icons" / f"{source}.svg"
@@ -72,14 +71,11 @@ def icon_html(source: SourceType, size: int = 24, email: bool = False) -> str:
         else:
             return Markup(f'<span class="text-{size//4}">{FALLBACK_EMOJIS.get(source, "🔗")}</span>')
     
-    if not os.access(icon_path, os.R_OK):
-            raise PermissionError(f"Permissions insuffisantes pour lire: {icon_path}")
-    
-    if email:                              
+    if email:                             
         logging.info(f"icon_html: icon_path={icon_path}")                
         with open(icon_path, "rb") as f:
             svg_base64 = base64.b64encode(f.read()).decode("utf-8")
-            return f'<img src="data:image/svg+xml;base64,{svg_base64}" alt="{source}" width="{size}" height="{size}" style="vertical-align: middle;">'
+            return Markup(f'<img src="data:image/svg+xml;base64,{svg_base64}" alt="{source}" width="{size}" height="{size}" style="vertical-align: middle;">')
 
     html = f'''
         <svg class="w-{size//4} h-{size//4} text-{source}" aria-hidden="true">
