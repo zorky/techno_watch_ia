@@ -225,7 +225,5 @@ li:target {
 
 /* Couleur spécifique pour Bluesky */
 .icon-bluesky {
-  color: #0088cc;     /* Bleu Bluesky officiel */
-  /* Alternative si le SVG a un fill fixe : */
-  /* filter: brightness(0) saturate(100%) invert(30%) sepia(100%) saturate(2000%) hue-rotate(190deg); */
+  color: #0088cc;     /* Bleu Bluesky officiel */  
 }

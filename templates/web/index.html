@@ -21,11 +21,13 @@
             transition: all 0.2s ease;
         }
     </style>
-    <!-- https://fontawesome.com/icons/bluesky?f=brands&s=solid -->
-    <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">        
-        <symbol id="icon-bluesky" viewBox="0 0 24 24">
-         {% include('icons/bluesky-brands-solid.svg') %}
-        </symbol>        
+    <!-- Sprite SVG (caché) -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+        {% for icon in ['bluesky', 'reddit', 'rss', 'linkedin', 'twitter'] %}
+            <symbol id="icon-{{ icon }}" viewBox="0 0 24 24">
+                {% include "icons/" ~ icon ~ ".svg" %}
+            </symbol>
+        {% endfor %}
     </svg>
 </head>
 <body class="font-sans text-gray-800 max-w-2xl mx-auto my-5 px-5 bg-gray-50">
@@ -56,35 +58,34 @@
 
     <!-- Liste des articles -->
     <ul class="list-none p-0">
-        <!-- <object data="/static/icons/bluesky-brands-solid.svg" class="w-6 h-6 text-bluesky"></object> -->
+        <!-- <object data="/static/icons/bluesky.svg" class="w-6 h-6 text-bluesky"></object> -->
         {% for article in articles %}
         <li
             id="article-{{ loop.index }}"
             class="bg-white mb-5 p-5 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
         >
             <h2 class="text-xl font-bold text-gray-800 mt-0 flex items-center gap-2">
-                <a href="#top" class="back-to-top text-blue-500 hover:text-blue-700">↑</a>
-                <i class="fas fa-link text-blue-500"></i>
-                <a href="{{ article.link }}" target="_blank" class="hover:text-blue-700">
-                    {{ article.title }}
-                </a>
-                <!-- <i class="fas fa-rss" style="color: #FF6600; margin-right: 8px;"></i>
-                <i class="fab fa-reddit-alien" style="color: #FF4500;"></i>                                
-                <svg class="{{ size or 'w-6 h-6' }} text-blue-500" aria-hidden="true">
-                    <use xlink:href="#icon-bluesky"></use>
-                </svg> -->
-                
+                <div class="flex items-center gap-2">
+                    <a href="#top" class="back-to-top text-blue-500 hover:text-blue-700">↑</a>
+                    <i class="fas fa-link text-blue-500"></i>
+                    <a href="{{ article.link }}" target="_blank" class="hover:text-blue-700">
+                        {{ article.title | truncate(50) | safe}}
+                    </a>
+                </div>
+                <div class="ml-auto">
+                    {{ article.source.value | icon_html(size=20) }}
+                </div>
             </h2>
             <h3 class="m-0">
                 <small class="text-gray-500 block my-2">
                     article publié le {{ article.published | format_date }} -
                     résumé du {{ article.dt_created | format_local_datetime }} -
-                    score: {{ article.score }}
+                    score: {{ article.score }} %
                 </small>
             </h3>
             <p class="article-summary text-gray-700 mt-2.5 pl-6 relative">
                 <i class="fas fa-newspaper text-blue-500 absolute left-0"></i>
-                {{ article.summary | nl2br | safe }}
+                {{ article.summary | nl2br }}
             </p>
         </li>
         {% endfor %}

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import logging
 
 from services.base_fetcher import BaseFetcher
-from services.models import Source
+from services.models import Source, SourceType
 
 logging.basicConfig(level=logging.INFO)
 from core.logger import logger, Fore
@@ -70,7 +70,8 @@ class RSSFetcher(BaseFetcher):
                     "summary": summary,
                     "link": link,
                     "published": published_time.isoformat() if published_time else None,
-                    "score": "0 %"
+                    "score": "0 %",
+                    "source": SourceType.RSS,
                 }
             )
             recent_in_feed += 1

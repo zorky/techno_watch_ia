@@ -8,6 +8,7 @@ class SourceType(str, Enum):
     # Futures sources
     BLUESKY = "bluesky"
     LINKEDIN = "linkedin"
+    TWITTER = "twitter"
 
 class Source(BaseModel):
     type: SourceType

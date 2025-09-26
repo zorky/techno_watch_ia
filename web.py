@@ -30,7 +30,9 @@ def read_articles(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
     from db import read_articles
     articles = read_articles(date)
-    
+    logger.info(f"Articles lus: len({articles})")
+    for article in articles:
+        logger.info(f"Article: {article.title} - {article.published} {article.source}")   
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "articles": articles}
@@ -91,7 +93,7 @@ def search_articles(
     logger.info(f"Recherche '{q}' - {len(articles)} résultats")
     logger.info(f"Articles: {articles}")
     if ajax:
-        # Retourne UNIQUEMENT le fragment HTML des résultats
+        # Retourne uniquement le fragment HTML des résultats
         return templates.TemplateResponse(
             "fragments/_search_ajax_results.html",
             {"request": request, "articles": articles}

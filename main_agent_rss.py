@@ -266,10 +266,10 @@ def filter_articles_with_faiss(
             # )
             logger.info(
                 f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']} {article['link']}"
-            )
-            # article['score'] = round(max_similarity, 2)
-            article["score"] = f"{max_similarity * 100:.1f} %"
-            logger.info(f"{article['title']} -> {article['score']}")
+            )            
+            article["score"] = f"{max_similarity * 100:.1f}"
+            logger.info(Fore.CYAN + f"{article['title']} {article['source']} -> {article['score']}")
+            # logger.info(Fore.CYAN + Style.DIM + f"{article['source']}")
             filtered.append(article)
 
     logger.info(
@@ -493,11 +493,13 @@ def register_fetchers():
     from services.rss_fetcher import RSSFetcher
     from services.models import SourceType
 
-    FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
+    # FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
     FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
 
 
 def unified_fetch_node(state: UnifiedState) -> UnifiedState:
+    register_fetchers()
+
     REDDIT_CLIENT_ID = os.getenv('REDDIT_CLIENT_ID', None)
     REDDIT_CLIENT_SECRET = os.getenv('REDDIT_CLIENT_SECRET', None)
 
@@ -505,7 +507,7 @@ def unified_fetch_node(state: UnifiedState) -> UnifiedState:
 
     # Configuration des fetchers
     fetchers = {
-        SourceType.RSS: FetcherFactory.create_fetcher(SourceType.RSS),
+        # SourceType.RSS: FetcherFactory.create_fetcher(SourceType.RSS),
         SourceType.REDDIT: FetcherFactory.create_fetcher(
             SourceType.REDDIT,
             client_id=REDDIT_CLIENT_ID,
@@ -568,6 +570,7 @@ def summarize_node(state: RSSState) -> RSSState:
             "score": article["score"],
             "published": article["published"],
             "dt_created": datetime.now(timezone.utc),
+            "source": article["source"] if "source" in article else "unknown",
         }
         summaries.append(summary)
         logger.info(f"Ajout du résumé {summary}")
@@ -587,6 +590,7 @@ def output_node(state: RSSState) -> RSSState:
             + Fore.BLUE
             + f"🔗 {item['link']}\n"
             + f"⏱️ {item['published']}"
+            + f"📡 {item['source']}"
         )
     return state
 
@@ -763,8 +767,6 @@ def _show_graph(graph):
         logger.error(f"{e}")
 
 def prepare_data():
-    register_fetchers()
-    
     sources_urls = get_rss_urls()
     reddit_subs= get_subs_reddit_urls()
     sources_urls.extend(reddit_subs)

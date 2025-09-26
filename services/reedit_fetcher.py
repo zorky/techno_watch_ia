@@ -4,7 +4,7 @@ import logging
 import os
 
 from services.base_fetcher import BaseFetcher
-from services.models import Source
+from services.models import Source, SourceType
 
 logging.basicConfig(level=logging.INFO)
 from core.logger import logger, Fore
@@ -66,7 +66,8 @@ class RedditFetcher(BaseFetcher):
                     'source_type': 'reddit',
                     'source_name': f"r/{source.subreddit}",
                     'score': post.score,
-                    'num_comments': post.num_comments
+                    'num_comments': post.num_comments,
+                    "source": SourceType.REDDIT,
                 })
         logger.info(Fore.CYAN + f"{len(articles)} articles récents récupérés de r/{source.subreddit}")  
 

@@ -127,3 +127,6 @@ Sinon le login / mot de passe de user@gmail.com provoquera une erreur du type
 
 Ce mot de passe application sera mis dans la variable `SMTP_PASSWORD` du .env
 
+## Icônes
+
+Pris en SVG sur https://fontawesome.com/search?q=reddit&o=r
