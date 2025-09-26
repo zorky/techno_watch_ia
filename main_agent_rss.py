@@ -337,6 +337,7 @@ Résumé :"""
 
 
 def _calculate_tokens(summary, elapsed):
+    """Calcule le nombre approximatif de tokens dans un texte et le débit en tokens/s."""
     import tiktoken
 
     enc = tiktoken.get_encoding("cl100k_base")
@@ -452,50 +453,9 @@ def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_f
         recent_in_feed += 1
     return recent_in_feed
 
-
-@measure_time
-def fetch_rss_articles(rss_urls: list[str], max_age_days: int = 10):
-    """
-    Récupère les articles des flux RSS/Atom, en ne gardant que ceux publiés dans les `max_age_days` derniers jours.
-
-    Args:
-        rss_urls: Liste des URL des flux RSS/Atom.
-        max_age_days: Nombre de jours pour considérer un article comme récent.
-    """
-    AGENT = "ReaderRSS/1.0"
-    RESOLVE_RELATIVE_URIS = False
-    SANITIZE_HTML = True
-    articles = []
-    cutoff_date = datetime.now() - timedelta(days=max_age_days)
-    logger.info(f"seuil date : {cutoff_date}")
-
-    for url in rss_urls:
-        logger.info(Fore.BLUE + f"Lecture du flux RSS : {url}")
-        feed = feedparser.parse(
-            url,
-            resolve_relative_uris=RESOLVE_RELATIVE_URIS,
-            sanitize_html=SANITIZE_HTML,
-            agent=AGENT,
-        )  # voir Etag et modified pour ne pas tout recharger
-        recent_in_feed = 0
-
-        for entry in feed.entries:
-            recent_in_feed = add_article_with_entry_syndication(
-                entry, articles, cutoff_date, recent_in_feed
-            )
-
-        logger.info(
-            f"{len(feed.entries)} articles trouvés dans ce flux, {recent_in_feed} récents !"
-        )
-
-    logger.debug(f"{len(articles)} articles récents récupérés")
-    return articles
-
-
 # =========================
 # Nœuds du graphe
 # =========================
-
 
 def create_legacy_wrapper(legacy_node_func):
     """

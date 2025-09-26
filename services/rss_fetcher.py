@@ -7,6 +7,7 @@ from services.models import Source
 
 logging.basicConfig(level=logging.INFO)
 from core.logger import logger, Fore
+from core import measure_time
 
 class RSSFetcher(BaseFetcher):
     def get_summary(self, entry: dict):
@@ -76,6 +77,7 @@ class RSSFetcher(BaseFetcher):
         return recent_in_feed
 
 
+    @measure_time
     def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
         """Votre logique RSS existante"""
         AGENT = "ReaderRSS/1.0"
@@ -83,16 +85,15 @@ class RSSFetcher(BaseFetcher):
         SANITIZE_HTML = True
         articles = []
         cutoff_date = datetime.now() - timedelta(days=max_days)
-        logger.info(f"seuil date : {max_days} -> {cutoff_date}")
-
-        # for url in rss_urls:
-        logger.info(Fore.BLUE + f"Lecture du flux RSS : {source.url}")
+        logger.info(Fore.BLUE + f"Fetch posts RSS du flux {source.url} depuis la date : depuis {max_days} jours -> {cutoff_date}")
+        
         feed = feedparser.parse(
             source.url,
             resolve_relative_uris=RESOLVE_RELATIVE_URIS,
             sanitize_html=SANITIZE_HTML,
             agent=AGENT,
         )  # voir Etag et modified pour ne pas tout recharger
+
         recent_in_feed = 0
 
         for entry in feed.entries:
@@ -104,25 +105,6 @@ class RSSFetcher(BaseFetcher):
             f"{len(feed.entries)} articles trouvés dans ce flux, {recent_in_feed} récents !"
         )
 
-        logger.debug(f"{len(articles)} articles récents récupérés")
+        logger.debug(Fore.CYAN + f"{len(articles)} articles récents récupérés")
         return articles
     
-        # feed = feedparser.parse(source.url)
-        # articles = []
-        
-        # cutoff_date = datetime.now() - timedelta(days=max_days)
-        
-        # for entry in feed.entries:
-        #     # Logique existante adaptée
-        #     pub_date = datetime.fromtimestamp(entry.published_parsed)
-        #     if pub_date > cutoff_date:
-        #         articles.append({
-        #             'title': entry.title,
-        #             'content': entry.summary,
-        #             'link': entry.link,
-        #             'published': pub_date.isoformat(),
-        #             'source_type': 'rss',
-        #             'source_name': source.name or feed.feed.title
-        #         })
-        
-        # return articles
