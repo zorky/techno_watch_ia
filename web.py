@@ -13,6 +13,8 @@ from jinja_filters import register_jinja_filters
 from typing import Optional
 
 import logging
+
+from services.models import SourceType
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,9 @@ def read_articles(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
     from db import read_articles
     articles = read_articles(date)
-    
+    logger.info(f"Articles lus: len({articles})")
+    for article in articles:
+        logger.info(f"Article: {article.title} - {article.published} {article.source}")   
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "articles": articles}
@@ -43,8 +47,7 @@ def search_articles(
     date_min: Optional[str] = None,
     date_max: Optional[str] = None,
     limit: int = 10,
-    ajax: bool = False
-    # session: Session = Depends(get_db)
+    ajax: bool = False    
 ):
     """
     Endpoint pour la recherche plein texte.
@@ -84,14 +87,15 @@ def search_articles(
                 "link": row.link,                
                 "summary": row.content,
                 "published": row.published,                
-                "score": row.rank
+                "score": row.rank,
+                "source": SourceType(row.source.lower()) if row.source else None,
             }
             for row in results
         ]
     logger.info(f"Recherche '{q}' - {len(articles)} résultats")
     logger.info(f"Articles: {articles}")
-    if ajax:
-        # Retourne UNIQUEMENT le fragment HTML des résultats
+    if ajax:        
+        # Retourne uniquement le fragment HTML des résultats
         return templates.TemplateResponse(
             "fragments/_search_ajax_results.html",
             {"request": request, "articles": articles}

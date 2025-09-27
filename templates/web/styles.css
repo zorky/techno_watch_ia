@@ -214,3 +214,16 @@ li:target {
     margin: 0;
     font-size: 1.1em;
 }
+
+/* Taille et couleur par défaut pour toutes les icônes */
+.icon {
+  width: 1.2em;       /* Taille relative au texte */
+  height: 1.2em;
+  vertical-align: middle;
+  margin-right: 0.5em;
+}
+
+/* Couleur spécifique pour Bluesky */
+.icon-bluesky {
+  color: #0088cc;     /* Bleu Bluesky officiel */  
+}

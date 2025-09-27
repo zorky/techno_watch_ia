@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <!-- Font Awesome pour les icônes -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v7.0.1/css/brands.css">
     <!-- Petit CSS complémentaire (minimal) pour les animations/transitions -->
     <style>
         /* Animations non couvertes par Tailwind */
@@ -20,6 +21,14 @@
             transition: all 0.2s ease;
         }
     </style>
+    <!-- Sprite SVG (caché) -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+        {% for icon in ['bluesky', 'reddit', 'rss', 'linkedin', 'twitter'] %}
+            <symbol id="icon-{{ icon }}" viewBox="0 0 24 24">
+                {% include "icons/" ~ icon ~ ".svg" %}
+            </symbol>
+        {% endfor %}
+    </svg>
 </head>
 <body class="font-sans text-gray-800 max-w-2xl mx-auto my-5 px-5 bg-gray-50">
     <header class="mb-8">
@@ -49,28 +58,36 @@
 
     <!-- Liste des articles -->
     <ul class="list-none p-0">
+        <!-- <object data="/static/icons/bluesky.svg" class="w-6 h-6 text-bluesky"></object> -->
         {% for article in articles %}
         <li
             id="article-{{ loop.index }}"
             class="bg-white mb-5 p-5 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
         >
             <h2 class="text-xl font-bold text-gray-800 mt-0 flex items-center gap-2">
-                <a href="#top" class="back-to-top text-blue-500 hover:text-blue-700">↑</a>
-                <i class="fas fa-link text-blue-500"></i>
-                <a href="{{ article.link }}" target="_blank" class="hover:text-blue-700">
-                    {{ article.title }}
-                </a>
+                <div class="flex items-center gap-2">
+                    <a href="#top" class="back-to-top text-blue-500 hover:text-blue-700">↑</a>
+                    <i class="fas fa-link text-blue-500"></i>
+                    <a href="{{ article.link }}" target="_blank" class="hover:text-blue-700">
+                        {{ article.title | truncate(50) | safe}}
+                    </a>
+                </div>
+                <div class="ml-auto">
+                    {% with article=article, email=false%}
+                        {% include 'fragments/_icon_brand.html' %}
+                    {% endwith %}                    
+                </div>
             </h2>
             <h3 class="m-0">
                 <small class="text-gray-500 block my-2">
                     article publié le {{ article.published | format_date }} -
                     résumé du {{ article.dt_created | format_local_datetime }} -
-                    score: {{ article.score }}
+                    score: {{ article.score }} %
                 </small>
             </h3>
             <p class="article-summary text-gray-700 mt-2.5 pl-6 relative">
                 <i class="fas fa-newspaper text-blue-500 absolute left-0"></i>
-                {{ article.summary | nl2br | safe }}
+                {{ article.summary | nl2br }}
             </p>
         </li>
         {% endfor %}

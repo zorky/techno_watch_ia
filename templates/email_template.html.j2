@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Veille Techno - Résumé du {{ date }}</title>
+    <title>Veille Techno - Résumé du {{ date }}</title>    
 </head>
 <body>
     <h2>Veille Techno - Résumé du {{ date }}</h2>
@@ -9,7 +9,14 @@
     <h5>Mots clés : {{keywords | join(', ')}} sur un seuil >= {{threshold}}</h5>
     {% for article in articles %}
         <div style="margin-bottom: 20px; border: 1px solid #ddd; padding: 10px;">
-            <h3><a href="{{ article.link }}">🔗 {{ article.title }}</a> - {{ article.score }}</h3>            
+            <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                <span>
+                    {% with article=article, email=true%}
+                        {% include 'web/fragments/_icon_brand.html' %}
+                    {% endwith %}&nbsp;
+                    <a href="{{ article.link }}">{{ article.title }}</a> - {{ article.score }} % 
+                </span>                
+            </h3>            
             <h4><small>publié le {{ article.published | format_date }} - résumé du {{ article.dt_created | format_local_datetime }} </small></h4>
             <p>📰 {{ article.summary | nl2br | safe }}</p>    
         </div>

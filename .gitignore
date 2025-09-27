@@ -1,6 +1,8 @@
 *.opml
 *.faiss
 *.db
+myreddit.json
+*.json
 
 # my.opml 
 # keywords_index.faiss

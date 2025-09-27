@@ -2,15 +2,16 @@ import os
 import logging
 from sqlalchemy import create_engine, text
 from sqlalchemy import Column, Integer, String, Text, DateTime, Index
-from sqlalchemy import DDL
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import event
+from sqlalchemy import Enum as SQLAlchemyEnum
 from contextlib import contextmanager
 from dotenv import load_dotenv
-from models.article import ArticleModel
 from datetime import datetime, timezone
+from models.article import ArticleModel
+from services.models import SourceType
 
 load_dotenv()
 DB_PATH = os.getenv("DB_PATH", "techno-watch.db")
@@ -42,6 +43,12 @@ class Article(Base):
     summary = Column(Text, nullable=False)
     score = Column(String, nullable=False)
     published = Column(String, nullable=False, index=True)    
+    source = Column(
+        SQLAlchemyEnum(SourceType),
+        nullable=False,
+        default=SourceType.RSS,  # Optionnel : valeur par défaut
+        index=True  # Optionnel : index pour les requêtes
+    )
 
 # Evènement pour màj de dt_updated - /!\ après la déclaration du modèle
 @event.listens_for(Article, 'before_update')
@@ -51,17 +58,53 @@ def update_timestamp(mapper, connection, target):
 class ArticleFTS:
     """Modèle pour la table FTS5 Full Text Search"""
     __tablename__ = 'articles_fts'
+
     @classmethod
     def execute_statement(cls, conn, statement):
         conn.execute(statement)
         conn.commit()
 
     @classmethod
+    def create_trigger_if_not_exists(cls, conn, trigger_name, trigger_sql):
+        # Vérifier si le trigger existe déjà
+        result = conn.execute(text(f"""
+            SELECT name FROM sqlite_master
+            WHERE type='trigger' AND name='{trigger_name}'
+        """)).fetchone()
+
+        if not result:
+            conn.execute(text(trigger_sql))
+            conn.commit()
+
+    @classmethod
     def init_table(cls, engine):                
         """Crée la table FTS5 manuellement."""
+        triggers = {
+            "sync_article_fts": f"""
+                CREATE TRIGGER sync_article_fts AFTER INSERT ON {Article.__tablename__}
+                BEGIN
+                    INSERT INTO {cls.__tablename__}(article_id, title, content)
+                    VALUES (new.id, new.title, new.summary);
+                END;
+            """,
+            "sync_article_update": f"""
+                CREATE TRIGGER sync_article_update AFTER UPDATE ON {Article.__tablename__}
+                BEGIN
+                    UPDATE {cls.__tablename__}
+                    SET title = new.title, content = new.summary
+                    WHERE article_id = new.id;
+                END;
+            """,
+            "sync_article_delete": f"""
+                CREATE TRIGGER sync_article_delete AFTER DELETE ON {Article.__tablename__}
+                BEGIN
+                    DELETE FROM {cls.__tablename__} WHERE article_id = old.id;
+                END;
+            """
+        }        
+        
         with engine.connect() as conn:        
-            cls.execute_statement(conn, text(f"""
-                -- DROP TABLE IF EXISTS articles_fts;
+            cls.execute_statement(conn, text(f"""                
                 CREATE VIRTUAL TABLE IF NOT EXISTS {cls.__tablename__} USING fts5(
                     article_id,
                     title,
@@ -70,29 +113,8 @@ class ArticleFTS:
                     prefix='2,3'
                 );                                               
                 """))
-            cls.execute_statement(conn, text(f"""
-            -- Trigger pour l'insertion
-                CREATE TRIGGER sync_article_fts AFTER INSERT ON {Article.__tablename__}
-                BEGIN
-                    INSERT INTO {cls.__tablename__}(article_id, title, content) VALUES (new.id, new.title, new.summary);
-                END;
-            """))
-            cls.execute_statement(conn, text(f"""
-            -- Trigger pour la mise à jour
-                CREATE TRIGGER sync_article_update AFTER UPDATE ON {Article.__tablename__}
-                BEGIN
-                    UPDATE {cls.__tablename__}
-                    SET title = new.title, content = new.summary
-                    WHERE article_id = new.id;
-                END;
-            """))
-            cls.execute_statement(conn, text(f"""
-            -- Trigger pour la suppression
-                CREATE TRIGGER sync_article_delete AFTER DELETE ON {Article.__tablename__}
-                BEGIN
-                    DELETE FROM {cls.__tablename__} WHERE article_id = old.id;
-                END;
-            """))            
+            for name, sql in triggers.items():
+                cls.create_trigger_if_not_exists(conn, name, sql)            
 
     @classmethod
     def insert(cls, session, title, content, published):
@@ -168,7 +190,8 @@ class ArticleFTS:
                 ranked.content as content,  
                 a.link as link,
                 a.published as published,                                                
-                ROUND(100.0 * ranked.score / (SELECT MAX(ranked.score) FROM ranked), 2) AS rank
+                ROUND(100.0 * ranked.score / (SELECT MAX(ranked.score) FROM ranked), 2) AS rank,
+                a.source as source
             FROM ranked
             JOIN {Article.__tablename__} a on a.id = ranked.article_id
         """
@@ -248,24 +271,6 @@ class ArticleFTS:
         logger.debug(f"SQL exécuté: {base_sql} avec {params}")
         return session.execute(text(base_sql), params).fetchall()
 
-# Hybrid approche FTS avec SQLAlchemy ORM (non utilisé ici mais pour référence)
-# class ArticleFTS(Base):
-#     __tablename__ = 'articles_fts'
-#     __table_args__ = {'extend_existing': True}  # ← Clé pour éviter la recréation
-
-#     rowid = Column(Integer, primary_key=True)
-#     # ... autres colonnes (mais elles ne seront pas utilisées pour FTS5)
-
-#     @classmethod
-#     def __declare_last__(cls):
-#         """Crée la table FTS5 après que SQLAlchemy ait fini."""
-#         DDL("""
-#         CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
-#             title, content, published,
-#             tokenize='unicode61', prefix='2,3'
-#         );
-#         """).execute_if(dialect='sqlite')
-
 #
 # Configuration SQL Alchemy
 # 
@@ -275,21 +280,6 @@ engine = create_engine(
     connect_args={"check_same_thread": False},  # Nécessaire pour SQLite avec FastAPI et le multi-threads
     echo=True  # Affiche les requêtes SQL (optionnel, pour le debug))
 )
-
-# def recreate_fts_table():
-#     """Supprime et recrée la table FTS5."""
-#     with engine.connect() as conn:
-#         # Supprimer l'ancienne table si elle existe
-#         conn.execute(text("DROP TABLE IF EXISTS articles_fts"))
-
-#         # Créer la nouvelle table
-#         ArticleFTS.__table__.create(bind=engine, checkfirst=True)
-
-#         # Vérifier la création
-#         result = conn.execute(text(
-#             "SELECT sql FROM sqlite_master WHERE name='articles_fts'"
-#         )).fetchone()
-#         logger.info(f"Table créée avec: {result[0] if result else 'Aucune table'}")
 
 def init_db():
     """Initialise la base de données SQLite."""
@@ -325,75 +315,8 @@ def _validate_and_get_articles_summaries(summaries):
     articles_data = [
         article.model_dump() for article in validated_articles
     ]  
+    logger.info(f"Articles validés pour insertion: {articles_data}")
     return articles_data
-
-def _articles_already_exists_fts(session, summaries: list[dict]):
-    """Les articles déjà existants dans FTS"""
-    from sqlalchemy import text, bindparam
-
-    titles = [item['title'] for item in summaries]
-    if not titles:
-        return set()
-
-    query = text(f"""
-        SELECT title, published
-        FROM {ArticleFTS.__tablename__}
-        WHERE title IN :titles
-    """).bindparams(bindparam("titles", expanding=True))
-
-    existing = session.execute(query, {"titles": titles}).fetchall()
-    existing_pairs = {(title, published) for title, published in existing}
-
-    return existing_pairs
-
-def save_to_fts(summaries: list[dict]):
-    """
-    Sauvegarde les articles en base FTS5 pour la recherche plein texte.
-
-    Args:
-        summaries: Liste des articles résumés à insérer
-    """
-    if not summaries:
-        return
-
-    with get_db() as session:
-        try:            
-            logger.info(f"Nombre d'articles potentiellement à indexer en FTS : {len(summaries)}")
-
-            # Récupération et détection des articles déjà indexés et préparation des données            
-            
-            existing_pairs = _articles_already_exists_fts(session, summaries)            
-            fts_data = [
-                {
-                    "title": item["title"],
-                    "content": item["summary"],
-                    "published": item["published"]
-                }
-                for item in summaries
-                if (item["title"], item["published"]) not in existing_pairs
-            ]            
-            if not fts_data:
-                logger.info("Aucun nouvel article à indexer en FTS")
-                return
-            logger.info(f"Indexation FTS de {len(fts_data)} nouveaux articles")
-
-            ArticleFTS.bulk_insert(session, fts_data)            
-            session.commit()
-
-            inserted_count = session.execute(
-                text("SELECT changes()")  # Compte le nombre de lignes effectivement insérées
-            ).scalar()
-
-            if inserted_count > 0:
-                logger.info(f"Indexation effective FTS de {inserted_count} nouveaux articles")
-
-            session.commit()
-
-        except Exception as e:
-            session.rollback()
-            logger.error(f"Erreur lors de l'indexation FTS: {str(e)}")
-            raise e
-
 
 def save_to_db(summaries: list[dict]):
     """
@@ -419,9 +342,7 @@ def save_to_db(summaries: list[dict]):
                 logger.info(f"Nombre de nouveaux articles {len(new_articles)}")            
                 articles_data = _validate_and_get_articles_summaries(new_articles)  
                 session.bulk_insert_mappings(Article, articles_data)
-                session.commit()      
-
-                # save_to_fts(new_articles)
+                session.commit()                      
         except Exception as e:
             session.rollback()
             raise e            
@@ -445,8 +366,6 @@ def search_fts(keywords: str):
         result3 = ArticleFTS.search(session, keywords or "docker", date_min="2025-09-01")
         logger.info(f"Résultats FTS: {result3}")
 
-if __name__ == "__main__":
-    # init_db()
-    articles = read_articles()
-    save_to_fts(articles)
+if __name__ == "__main__":    
+    articles = read_articles()    
     print(f"Nombre d'articles en base: {len(articles)}")
