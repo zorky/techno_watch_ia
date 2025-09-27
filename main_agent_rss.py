@@ -493,7 +493,7 @@ def register_fetchers():
     from services.rss_fetcher import RSSFetcher
     from services.models import SourceType
 
-    # FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
+    FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
     FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
 
 
@@ -507,7 +507,7 @@ def unified_fetch_node(state: UnifiedState) -> UnifiedState:
 
     # Configuration des fetchers
     fetchers = {
-        # SourceType.RSS: FetcherFactory.create_fetcher(SourceType.RSS),
+        SourceType.RSS: FetcherFactory.create_fetcher(SourceType.RSS),
         SourceType.REDDIT: FetcherFactory.create_fetcher(
             SourceType.REDDIT,
             client_id=REDDIT_CLIENT_ID,
