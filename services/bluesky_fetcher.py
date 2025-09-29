@@ -26,7 +26,7 @@ class BlueskyFetcher(BaseFetcher):
             "User-Agent": self.AGENT
         }
     
-    async def _authenticate(self) -> Optional[str]:
+    def _authenticate(self) -> Optional[str]:
         """
         Authentification optionnelle pour accès complet
         """
@@ -40,20 +40,20 @@ class BlueskyFetcher(BaseFetcher):
             "password": self.password
         }
         
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        with aiohttp.ClientSession() as session:
+            with session.post(
                 f"{self.base_url}/xrpc/com.atproto.server.createSession",
                 json=auth_data,
                 headers=self.headers
             ) as response:
                 if response.status == 200:
-                    result = await response.json()
+                    result = response.json()
                     return result.get("accessJwt")
                 else:
                     print(f"Bluesky auth failed: {response.status}")
                     return None
     
-    async def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
+    def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
         """
         Récupère les posts d'un utilisateur Bluesky ou du feed public
         
@@ -69,22 +69,22 @@ class BlueskyFetcher(BaseFetcher):
         cutoff_date = datetime.now() - timedelta(days=max_days)
         
         # Authentification optionnelle
-        access_token = await self._authenticate()
+        access_token = self._authenticate()
         if access_token:
             self.headers["Authorization"] = f"Bearer {access_token}"
         
-        async with aiohttp.ClientSession() as session:
+        with aiohttp.ClientSession() as session:
             try:
                 if source.url == "firehose" or source.url.startswith("firehose"):
                     # Feed public général
-                    articles = await self._fetch_public_feed(session, max_days)
+                    articles = self._fetch_public_feed(session, max_days)
                 elif source.url.startswith("@") or source.url.startswith("did:"):
                     # Posts d'un utilisateur spécifique
-                    articles = await self._fetch_user_posts(session, source.url, max_days)
+                    articles = self._fetch_user_posts(session, source.url, max_days)
                 elif "bsky.app/profile/" in source.url:
                     # URL profile Bluesky
                     handle = source.url.split("/profile/")[-1]
-                    articles = await self._fetch_user_posts(session, handle, max_days)
+                    articles = self._fetch_user_posts(session, handle, max_days)
                 else:
                     print(f"Format d'URL Bluesky non supporté: {source.url}")
                     
@@ -93,7 +93,7 @@ class BlueskyFetcher(BaseFetcher):
         
         return articles
     
-    async def _fetch_public_feed(self, session: aiohttp.ClientSession, max_days: int) -> list[dict]:
+    def _fetch_public_feed(self, session: aiohttp.ClientSession, max_days: int) -> list[dict]:
         """
         Récupère le feed public Bluesky
         """
@@ -107,9 +107,9 @@ class BlueskyFetcher(BaseFetcher):
             "limit": 100
         }
         
-        async with session.get(url, headers=self.headers, params=params) as response:
+        with session.get(url, headers=self.headers, params=params) as response:
             if response.status == 200:
-                data = await response.json()
+                data = response.json()
                 feed_items = data.get("feed", [])
                 
                 for item in feed_items:
@@ -128,7 +128,7 @@ class BlueskyFetcher(BaseFetcher):
         
         return articles
     
-    async def _fetch_user_posts(self, session: aiohttp.ClientSession, user_identifier: str, max_days: int) -> list[dict]:
+    def _fetch_user_posts(self, session: aiohttp.ClientSession, user_identifier: str, max_days: int) -> list[dict]:
         """
         Récupère les posts d'un utilisateur spécifique
         """
@@ -143,12 +143,12 @@ class BlueskyFetcher(BaseFetcher):
         profile_url = f"{self.base_url}/xrpc/app.bsky.actor.getProfile"
         profile_params = {"actor": user_identifier}
         
-        async with session.get(profile_url, headers=self.headers, params=profile_params) as response:
+        with session.get(profile_url, headers=self.headers, params=profile_params) as response:
             if response.status != 200:
                 print(f"Impossible de récupérer le profil {user_identifier}: {response.status}")
                 return articles
                 
-            profile_data = await response.json()
+            profile_data = response.json()
             user_did = profile_data.get("did")
             display_name = profile_data.get("displayName", user_identifier)
         
@@ -160,9 +160,9 @@ class BlueskyFetcher(BaseFetcher):
             "filter": "posts_no_replies"  # Seulement les posts originaux
         }
         
-        async with session.get(posts_url, headers=self.headers, params=posts_params) as response:
+        with session.get(posts_url, headers=self.headers, params=posts_params) as response:
             if response.status == 200:
-                data = await response.json()
+                data = response.json()
                 feed_items = data.get("feed", [])
                 
                 for item in feed_items:
@@ -226,8 +226,8 @@ class BlueskyFetcher(BaseFetcher):
                 at_url = f"https://bsky.app/profile/{handle}/post/{rkey}"
         
         return {
-            'title': text[:100] + "..." if len(text) > 100 else text,  # Titre = début du texte
-            'content': text,
+            'title': text[:100] + "..." if len(text) > 100 else text,  # Titre = début du texte            
+            'summary': text,
             'link': at_url,
             'published': record.get("createdAt", datetime.now().isoformat()),
             'source_type': 'bluesky',
