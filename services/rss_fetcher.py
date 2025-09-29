@@ -42,6 +42,7 @@ class RSSFetcher(BaseFetcher):
         """
         # Récupération de la date de publication (priorité à published, sinon updated)
         published_time = None
+        logger.info(Fore.RED + f"DATE published_parsed {entry.published_parsed} -> {entry.published_parsed[:6]}")
         if hasattr(entry, "published_parsed"):
             published_time = datetime(*entry.published_parsed[:6])
         elif hasattr(entry, "updated_parsed"):

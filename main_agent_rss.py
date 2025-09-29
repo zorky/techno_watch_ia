@@ -659,7 +659,6 @@ def make_graph():
 
     return graph.compile()
 
-
 def get_rss_urls():
     """
     Obtient la liste des URL RSS à traiter à partir des variables d'environnement.

@@ -30,6 +30,7 @@ dependencies = [
     "pytz>=2025.2",
     "praw>=7.8.1",
     "tiktoken>=0.11.0",
+    "atproto>=0.0.62",
 ]
 
 [tool.uv.sources]
