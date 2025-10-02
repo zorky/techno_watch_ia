@@ -49,10 +49,13 @@ def _apply_freshness_adjustment(articles_by_source: list[dict], quotas: dict) ->
     """Ajustement selon la fraîcheur des RSS"""
     
     # ['title', 'summary', 'link', 'published', 'score', 'source']
+    # total_rss = len(articles_by_source['rss'] or [])
+    # recent_rss_ratio = _count_recent_rss(articles_by_source['rss']) / max(1, total_rss)
 
-    articles_rss = list(filter(lambda x: x['source'] == SourceType.RSS, articles_by_source))
-    recent_rss_ratio = len(articles_rss)
-    # recent_rss_ratio = _count_recent_rss(articles_rss) / max(1, total_rss)
+    total_articles_sources = len(articles_by_source)
+    articles_rss = list(filter(lambda x: x['source'] == SourceType.RSS, articles_by_source))    
+    recent_rss_ratio = len(articles_rss) / max(1, total_articles_sources)
+    logger.info(Fore.YELLOW + f"Ratio RSS récents : {recent_rss_ratio:.2f} ({len(articles_rss)}/{total_articles_sources})") 
 
     threshold = float(os.getenv('FRESHNESS_BOOST_THRESHOLD', 0.3))
     
@@ -99,21 +102,26 @@ def select_articles_for_summary(articles_by_source: list[dict], max_days: int) -
     # ÉTAPE 1: Calculer les quotas de base (Phase 1)
     quotas = _calculate_quotas(total_count)
     # Résultat: {'rss_min': 6, 'reddit_min': 3, 'bluesky_min': 2, 'flexible': 4}
-    
+    logger.info(Fore.CYAN + f"Quotas initiaux: {quotas}")
+
     # ÉTAPE 2: Ajuster selon la fraîcheur des RSS (Phase 4)
     quotas = _apply_freshness_adjustment(articles_by_source, quotas)
     # Peut modifier les quotas si RSS peu actifs
-    
+    logger.info(Fore.MAGENTA + f"Quotas après ajustement fraîcheur: {quotas}")  
+
     # ÉTAPE 3: Sélectionner les articles garantis par quota
     selected_articles = []
     remaining_articles = {}
     
     # for source in ['rss', 'reddit', 'bluesky']:
     for source in SourceType:
-        logger.info(Fore.RED + f"Traitement source {source} avec quota {quotas.get(f'{source}_min', 0)}")
+        logger.info(Fore.RED + f"Traitement source {source.value} avec quota {quotas.get(f'{source.value}_min', 0)}")
         # articles = articles_by_source[source]
         articles = list(filter(lambda x: x['source'] == source, articles_by_source))
-        quota_key = f'{source}_min'
+        logger.info(Fore.BLUE + f" - {len(articles)} articles disponibles pour la source {source.value}")
+        # if not articles:
+        #     continue    
+        quota_key = f'{source.value}_min'
         quota = quotas.get(quota_key, 0)
         
         # Trier par score de pertinence (supposant que c'est déjà fait)
