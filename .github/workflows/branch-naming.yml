@@ -1,0 +1,20 @@
+name: Check Branch Naming Convention
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+jobs:
+  check-branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          BRANCH_REGEX="^(feat|fix|docs|refactor|test|chore)\/[a-z0-9\-]+$"
+
+          if [[ ! $BRANCH_NAME =~ $BRANCH_REGEX ]]; then
+            echo "❌ Le nom de la branche '$BRANCH_NAME' ne respecte pas la convention."
+            echo "Utilisez un préfixe parmi : feat/, fix/, docs/, refactor/, test/, chore/"
+            exit 1
+          fi
+          echo "✅ Le nom de la branche '$BRANCH_NAME' respecte la convention."
