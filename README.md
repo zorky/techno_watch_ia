@@ -130,3 +130,15 @@ Ce mot de passe application sera mis dans la variable `SMTP_PASSWORD` du .env
 ## Icônes
 
 Pris en SVG sur https://fontawesome.com/search?q=reddit&o=r
+
+## Conventions de nommage des branches
+
+Les branches doivent suivre le format :
+- `feat/` pour une nouvelle fonctionnalité.
+- `fix/` pour une correction de bug.
+- `docs/` pour de la documentation.
+- `refactor/` pour du refactoring.
+- `test/` pour des tests.
+- `chore/` pour des tâches de maintenance.
+
+Exemple : `feat/implement-source-weights`
