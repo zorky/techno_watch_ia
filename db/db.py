@@ -311,6 +311,9 @@ def read_articles(date: str = None):
     return articles
 
 def _validate_and_get_articles_summaries(summaries):
+    for item in summaries:
+        logging.info(f"** item summaries : {item}\n")
+
     validated_articles = [ArticleModel(**item) for item in summaries]
     articles_data = [
         article.model_dump() for article in validated_articles
