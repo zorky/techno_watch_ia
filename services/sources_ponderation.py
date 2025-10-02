@@ -1,6 +1,12 @@
 import os
 from math import ceil, floor
 from dotenv import load_dotenv
+import logging
+from services.models import SourceType
+
+logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
+from core.logger import logger, Fore
 
 load_dotenv()
 
@@ -41,9 +47,13 @@ def _count_recent_rss(rss_articles):
 
 def _apply_freshness_adjustment(articles_by_source: list[dict], quotas: dict) -> dict:
     """Ajustement selon la fraîcheur des RSS"""
-    total_rss = len(articles_by_source['rss'] or [])
-    recent_rss_ratio = _count_recent_rss(articles_by_source['rss']) / max(1, total_rss)
     
+    # ['title', 'summary', 'link', 'published', 'score', 'source']
+
+    articles_rss = list(filter(lambda x: x['source'] == SourceType.RSS, articles_by_source))
+    recent_rss_ratio = len(articles_rss)
+    # recent_rss_ratio = _count_recent_rss(articles_rss) / max(1, total_rss)
+
     threshold = float(os.getenv('FRESHNESS_BOOST_THRESHOLD', 0.3))
     
     if recent_rss_ratio < threshold:
@@ -77,7 +87,8 @@ def select_articles_for_summary(articles_by_source: list[dict], max_days: int) -
     Fonction principale qui orchestre la sélection des articles
     
     Args:
-        articles_by_source: {'rss': [...], 'reddit': [...], 'bluesky': [...]}
+        articles_by_source: ['title', 'summary', 'link', 'published', 'score', 'source']
+        (old : {'rss': [...], 'reddit': [...], 'bluesky': [...]})
         max_days: Fenêtre temporelle (MAX_DAYS depuis .env)
     
     Returns:
@@ -97,8 +108,11 @@ def select_articles_for_summary(articles_by_source: list[dict], max_days: int) -
     selected_articles = []
     remaining_articles = {}
     
-    for source in ['rss', 'reddit', 'bluesky']:
-        articles = articles_by_source['source']
+    # for source in ['rss', 'reddit', 'bluesky']:
+    for source in SourceType:
+        logger.info(Fore.RED + f"Traitement source {source} avec quota {quotas.get(f'{source}_min', 0)}")
+        # articles = articles_by_source[source]
+        articles = list(filter(lambda x: x['source'] == source, articles_by_source))
         quota_key = f'{source}_min'
         quota = quotas.get(quota_key, 0)
         
