@@ -560,6 +560,7 @@ def filter_node(state: UnifiedState) -> RSSState:
 
 def summarize_node(state: RSSState) -> RSSState:
     from datetime import datetime, timezone
+    from services.sources_ponderation import select_articles_for_summary
 
     logger.info("✏️  Résumé des articles filtrés...")
     LIMIT_ARTICLES_TO_RESUME = int(os.getenv("LIMIT_ARTICLES_TO_RESUME", -1))
@@ -569,8 +570,13 @@ def summarize_node(state: RSSState) -> RSSState:
     else:
         logger.info("Pas de limite sur le nombre d'articles à résumer")
         articles = state.filtered_articles
+    # dict Article : 'title', 'summary', 'link', 'published', 'score', 'source'        
+    article = articles[0]
+    logger.info(f"** 1er article à résumer : {article.keys()} {article.values()}")
+    articles_to_summarise = select_articles_for_summary(articles, MAX_DAYS)
+    logger.info(f"{len(articles_to_summarise)} articles sélectionnés pour résumé")
     summaries = []
-    for i, article in enumerate(articles, start=1):
+    for i, article in enumerate(articles_to_summarise, start=1):        
         logger.info(Fore.YELLOW + f"Résumé {i}/{len(articles)} : {article['title']}")
         summary_text = summarize_article(article["title"], article["summary"])
         summary = {
