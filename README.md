@@ -4,8 +4,8 @@ Objectif : développer un agent avec LangGraph qui effectue une veille technolog
 
 Process déroulé :
 
-- Lit un OPML contenant les flux RSS / Atom ou des subs Reddit
-- Lit les flux RSS / Atom ou subs Reddit pour obtenir leur contenu
+- Lit un OPML contenant les flux RSS / Atom ou des subs Reddit / comptes Bluesky
+- Lit les flux RSS / Atom ou subs Reddit / flux Bluesky pour obtenir leur contenu
 - Indexe le contenu obtenu à l'aide d'une base vectorielle
 - Recherche dans le contenu de mots clés (vectorisés) prédéfinis 
 - Les articles trouvés sur un seuil prédéfini remontent (scoring avec similartié cosinus)
