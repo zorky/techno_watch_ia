@@ -112,8 +112,7 @@ def select_articles_for_summary(articles_by_source: list[dict], max_days: int) -
     # ÉTAPE 3: Sélectionner les articles garantis par quota
     selected_articles = []
     remaining_articles = {}
-    
-    # for source in ['rss', 'reddit', 'bluesky']:
+        
     for source in SourceType:
         logger.info(Fore.RED + f"Traitement source {source.value} avec quota {quotas.get(f'{source.value}_min', 0)}")
         # articles = articles_by_source[source]

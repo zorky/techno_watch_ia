@@ -5,10 +5,10 @@ from enum import Enum
 class SourceType(str, Enum):
     RSS = "rss"
     REDDIT = "reddit"
-    # Futures sources
     BLUESKY = "bluesky"
-    LINKEDIN = "linkedin"
-    TWITTER = "twitter"
+    # Futures potentielles sources    
+    # LINKEDIN = "linkedin"
+    # TWITTER = "twitter"
 
 class Source(BaseModel):
     type: SourceType

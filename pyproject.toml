@@ -1,7 +1,7 @@
 [project]
 name = "techno-watch-ia"
-version = "0.1.0"
-description = "Veille techno pour une revue de presse RSS ou Atom"
+version = "0.3.0"
+description = "Veille techno pour une revue de presse RSS/Atom, Reddit, Bluesky"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
