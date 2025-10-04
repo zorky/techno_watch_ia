@@ -1,25 +1,24 @@
 import praw
 from datetime import datetime, timedelta
+
 import logging
-import os
+logging.basicConfig(level=logging.INFO)
 
 from services.fetchers.base_fetcher import BaseFetcher
 from services.models import Source, SourceType
 
-logging.basicConfig(level=logging.INFO)
 from core.logger import logger, Fore
+from core.utils import get_environment_variable
 from core import measure_time
 
 class RedditFetcher(BaseFetcher):
-    def __init__(self, client_id: str, client_secret: str, user_agent: str):
-        from dotenv import load_dotenv
-        load_dotenv()
+    def __init__(self, client_id: str, client_secret: str, user_agent: str):        
         self.reddit = praw.Reddit(
             client_id=client_id,
             client_secret=client_secret,
             user_agent=user_agent
         )
-        self.max_fetch = int(os.getenv("REDDIT_MAX_FETCH", 10))
+        self.max_fetch = int(get_environment_variable("REDDIT_MAX_FETCH", 10))
     
     @measure_time
     def fetch_articles(self, source: Source, max_days: int) -> list[dict]:

@@ -206,10 +206,12 @@ class ArticleFTS:
         """
 
         logger.info(f"SQL exécuté: {base_sql} avec {params}")
-        # results = session.execute(text(base_sql), params).fetchall()
+        
         results = session.execute(text(base_sql), params)
         results_as_dict = results.mappings().all()
-        logger.info(f"results : {results_as_dict}")
+
+        logger.debug(f"results : {results_as_dict}")
+        
         return results_as_dict
         # return results.fetchall()
 

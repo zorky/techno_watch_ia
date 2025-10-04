@@ -1,13 +1,14 @@
 import aiohttp
 from datetime import datetime, timedelta
+
 import logging
+logging.basicConfig(level=logging.INFO)
+
+from core.logger import logger, Fore
+from core import measure_time
 
 from services.fetchers.base_fetcher import BaseFetcher
 from services.models import Source, SourceType
-
-logging.basicConfig(level=logging.INFO)
-from core.logger import logger, Fore
-from core import measure_time
 
 class BlueskyFetcher(BaseFetcher):
     def __init__(self, handle: str = None, password: str = None):

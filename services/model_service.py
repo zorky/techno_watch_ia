@@ -1,4 +1,3 @@
-# import os
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -43,15 +42,12 @@ def init_llm_chat():
     #     # num_predict=MAX_TOKENS,
     # )
 
-# llm = init_llm_chat()
-
 # =========================
 # Configuration du modèle d'embeddings
 # Modèles disponibles et spécs :
 # https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
 # =========================
 
-# MODEL_EMBEDDINGS = "all-MiniLM-L6-v2"
 def get_device_cpu_gpu_info():
     import torch
 
@@ -72,7 +68,9 @@ def init_sentence_model():
     # return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=DEVICE_TYPE)  # bon compromis pour le français/anglais
     # return SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=DEVICE_TYPE)  # Optimisé pour la similarité
 
-
+# =========================
+# Le prompt pour le résumé à réaliser
+# =========================
 
 def set_prompt(theme, title, content):
     prompt = f"""Tu es un expert en {theme}. Résume **uniquement** l'article ci-dessous en **3 phrases maximales**, en français, avec :

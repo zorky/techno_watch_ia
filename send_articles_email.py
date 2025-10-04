@@ -1,24 +1,23 @@
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
 import smtplib
-import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from dotenv import load_dotenv
-from models.emails import EmailTemplateParams
 from jinja_filters import register_jinja_filters
+
+from models.emails import EmailTemplateParams
+from core.utils import get_environment_variable
 
 # =========================
 # Configuration SMTP
 # =========================
 
-load_dotenv()
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.server.ntld")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_LOGIN = os.getenv("SMTP_LOGIN", "jdoe")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "pwd")
-SENDER = os.getenv("SENDER", "zorky00@gmail.com")
-SEND_EMAIL_TO = os.getenv("SEND_EMAIL_TO", "jane.do@domain.ntld")
+SMTP_SERVER = get_environment_variable("SMTP_SERVER", "smtp.server.ntld")
+SMTP_PORT = int(get_environment_variable("SMTP_PORT", "587"))
+SMTP_LOGIN = get_environment_variable("SMTP_LOGIN", "jdoe")
+SMTP_PASSWORD = get_environment_variable("SMTP_PASSWORD", "pwd")
+SENDER = get_environment_variable("SENDER", "zorky00@gmail.com")
+SEND_EMAIL_TO = get_environment_variable("SEND_EMAIL_TO", "jane.do@domain.ntld")
 
 # =========================
 # Rendu du template Jinja2

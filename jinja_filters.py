@@ -52,7 +52,7 @@ def icon_html(source: SourceType, size: int = 24, email: bool = False) -> str:
         size: Taille en pixels (défaut: 24).
         email: Si True, retourne une balise <img> avec SVG en base64.
     """    
-    logging.info(f"icon_html: source={source}, size={size}, email={email}")
+    logging.debug(f"icon_html: source={source}, size={size}, email={email}")
 
     icon_path = Path(__file__).parent / "templates" / "web" / "icons" / f"{source}.svg"
     FALLBACK_EMOJIS = {
@@ -72,7 +72,7 @@ def icon_html(source: SourceType, size: int = 24, email: bool = False) -> str:
             return Markup(f'<span class="text-{size//4}">{FALLBACK_EMOJIS.get(source, "🔗")}</span>')
     
     if email:                             
-        # logging.info(f"icon_html: icon_path={icon_path}")                
+        logging.debug(f"icon_html: icon_path={icon_path}")                
         with open(icon_path, "rb") as f:
             svg_base64 = base64.b64encode(f.read()).decode("utf-8")
             return Markup(f'<img src="data:image/svg+xml;base64,{svg_base64}" alt="{source}" width="{size}" height="{size}" style="vertical-align: middle;">')
