@@ -8,7 +8,6 @@ from core.logger import logger
 from services.models import UnifiedState
 from models.states import RSSState
 from core.utils import measure_time
-# from main_agent import model, THRESHOLD_SEMANTIC_SEARCH
 
 load_dotenv()
 THRESHOLD_SEMANTIC_SEARCH = float(os.getenv("THRESHOLD_SEMANTIC_SEARCH", "0.5"))

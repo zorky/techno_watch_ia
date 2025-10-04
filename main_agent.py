@@ -78,8 +78,8 @@ from services.models import Source, SourceType, UnifiedState
 
 from core import logger
 
-from nodes import unified_fetch_node, filter_node
-from services.model_service import init_sentence_model #, model
+from nodes import unified_fetch_node, filter_node, summarize_node
+# from services.model_service import init_sentence_model #, model
 
 # =========================
 # Init du logging et logger
@@ -107,31 +107,8 @@ FILTER_KEYWORDS = os.getenv("FILTER_KEYWORDS", "").split(",")
 THRESHOLD_SEMANTIC_SEARCH = float(os.getenv("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
 MAX_DAYS = int(os.getenv("MAX_DAYS", "10"))
 OPML_FILE = os.getenv("OPML_FILE", "my.opml")
-TOP_P = float(os.getenv("TOP_P", "0.5"))
-MAX_TOKENS_GENERATE = int(os.getenv("MAX_TOKENS_GENERATE", "300"))
-
-
-# =========================
-# Configuration LLM local / saas
-# =========================
-def init_llm_chat():
-    return ChatOpenAI(
-        model=LLM_MODEL,
-        openai_api_base=LLM_API,
-        openai_api_key="dummy-key-ollama",
-        temperature=LLM_TEMPERATURE,
-        top_p=TOP_P,
-        max_tokens=MAX_TOKENS_GENERATE,
-    )
-    # return ChatOllama(
-    #     model=LLM_MODEL,
-    #     temperature=LLM_TEMPERATURE,
-    #     base_url=LLM_API,  # http://localhost:11434
-    #     top_p=TOP_P,
-    #     # num_predict=MAX_TOKENS,
-    # )
-
-llm = init_llm_chat()
+# TOP_P = float(os.getenv("TOP_P", "0.5"))
+# MAX_TOKENS_GENERATE = int(os.getenv("MAX_TOKENS_GENERATE", "300"))
 
 # =========================
 # Fonctions utilitaires
@@ -161,114 +138,6 @@ def preprocess_text(text):
     lemmatizer = WordNetLemmatizer()
     tokens = [lemmatizer.lemmatize(t) for t in tokens]
     return " ".join(tokens)
-
-def set_prompt(theme, title, content):
-    prompt = f"""Tu es un expert en {theme}. Résume **uniquement** l'article ci-dessous en **3 phrases maximales**, en français, avec :
-1. L'information principale (qui ? quoi ?), précise s'il y a du code ou un projet avec du code.
-2. Les détails clés (chiffres, noms, dates).
-3. L'impact ou la solution proposée.
-
-**Exemple :**
-Titre : "Sortie de Python 3.12 avec un compilateur JIT"
-Contenu : "Python 3.12 intègre un compilateur JIT expérimental..."
-Résumé : Python 3.12 introduit un compilateur JIT expérimental pour accélérer l'exécution. Les tests montrent un gain de 10 à 30% sur certains workloads. Disponible en version bêta dès septembre 2025.
-
-**À résumer :**
-{title}
-
-Contenu : {content}
-
-Résumé :"""
-
-    return prompt
-
-    # minimaliste et original
-    #     prompt = f"""Tu es un journaliste expert. Résume en français cet article en 3 phrases claires et concises.
-    # Titre : {title}
-    # Contenu : {content}
-    # """
-    # prompt technique à points
-    #     prompt = f"""Tu es un expert en {theme}. Résume cet article en 3 phrases **techniquement précises**, en français, en extraant :
-    # 1. L'information principale (ex: une découverte, une vulnérabilité, une sortie logicielle).
-    # 2. Les détails clés (ex: versions concernées, acteurs impliqués, dates).
-    # 3. L'impact ou la nouveauté (ex: "Cette faille affecte X utilisateurs", "Ce framework simplifie Y").
-    # - Si le contenu est trop vague, réponds : "Résumé impossible : article incomplet ou non informatif.
-    # - Si le contenu est en anglais, traduis-le d'abord en français avant de résumer.
-
-    # **Titre :** {title}
-    # **Contenu :** {content}
-
-    # **Résumé :**"""
-    # few-shot
-    #     prompt = f"""Exemples de résumés attendus :
-    # ---
-    # Titre : "Découverte d'une faille critique dans OpenSSL 3.2"
-    # Contenu : "La faille CVE-2024-1234 permet une exécution de code à distance..."
-    # Résumé : OpenSSL 3.2 contient une faille critique (CVE-2024-1234) permettant une exécution de code à distance. Les versions 3.2.0 à 3.2.3 sont concernées. Les utilisateurs doivent mettre à jour immédiatement.
-    # ---
-
-    # Titre : "Meta présente Llama 3.1 avec 400M de paramètres"
-    # Contenu : "Llama 3.1 introduit une architecture optimisée pour les devices mobiles..."
-    # Résumé : Meta a lancé Llama 3.1, un modèle léger (400M de paramètres) optimisé pour les mobiles. Il surpasse les précédents modèles sur les benchmarks de latence. Disponible dès aujourd'hui en open source.
-    # ---
-
-    # **À toi :** Résume l'article suivant en suivant le même format.
-
-    # **Titre :** {title}
-    # **Contenu :** {content}
-
-    # **Résumé :**"""
-
-
-def _calculate_tokens(summary, elapsed):
-    """Calcule le nombre approximatif de tokens dans un texte et le débit en tokens/s."""
-    import tiktoken
-
-    enc = tiktoken.get_encoding("cl100k_base")
-    tokens = len(enc.encode(summary))
-    logger.info(
-        f"Résumé : {tokens} tokens - débit approximatif {tokens / elapsed:.2f} tokens/s"
-    )
-
-
-@measure_time
-def summarize_article(title, content):
-    import time
-
-    prompt = set_prompt("IA, ingénieurie logicielle et cybersécurité", title, content)
-
-    if argscli.debug:
-        logger.debug(
-            Fore.MAGENTA
-            + "--- PROMPT ENVOYÉ AU LLM ---\n"
-            + prompt
-            + "\n---------------------------"
-        )
-        start = time.time()
-
-    # Appel au LLM
-    result = llm.invoke(prompt)
-    summary = result.content.strip().strip('"').strip()
-
-    if argscli.debug:
-        end = time.time()
-        elapsed = end - start
-        _calculate_tokens(summary, elapsed)
-
-    if argscli.debug:
-        logger.debug(
-            Fore.MAGENTA
-            + "--- RÉPONSE BRUTE DU LLM ---\n"
-            + str(result)
-            + "\n---------------------------"
-        )
-
-    # Nettoyage des introductions génériques
-    for prefix in ["Voici un résumé :", "Résumé :", "L'article explique que"]:
-        if summary.startswith(prefix):
-            summary = summary[len(prefix) :].strip()
-    return summary
-
 
 def strip_html(text: str) -> str:
     """Supprime les balises HTML d'un texte pour n'avoir que du texte brut."""
@@ -369,41 +238,6 @@ def create_legacy_wrapper(legacy_node_func):
         )
 
     return wrapper
-
-def summarize_node(state: RSSState) -> RSSState:
-    from datetime import datetime, timezone
-    from services.sources_ponderation import select_articles_for_summary
-
-    logger.info("✏️  Résumé des articles filtrés...")
-    LIMIT_ARTICLES_TO_RESUME = int(os.getenv("LIMIT_ARTICLES_TO_RESUME", -1))
-    if LIMIT_ARTICLES_TO_RESUME > 0:
-        logger.info(f"Limite de résumé à {LIMIT_ARTICLES_TO_RESUME} articles")
-        articles = state.filtered_articles[:LIMIT_ARTICLES_TO_RESUME]
-    else:
-        logger.info("Pas de limite sur le nombre d'articles à résumer")
-        articles = state.filtered_articles
-    # dict Article : 'title', 'summary', 'link', 'published', 'score', 'source'        
-    article = articles[0]
-    logger.info(f"** 1er article à résumer : {article.keys()} {article.values()}")
-    articles_to_summarise = select_articles_for_summary(articles, MAX_DAYS)
-    logger.info(f"{len(articles_to_summarise)} articles sélectionnés pour résumé")
-    summaries = []
-    for i, article in enumerate(articles_to_summarise, start=1):        
-        logger.info(Fore.YELLOW + f"Résumé {i}/{len(articles)} : {article['title']}")
-        summary_text = summarize_article(article["title"], article["summary"])
-        summary = {
-            "title": article["title"],
-            "summary": summary_text,
-            "link": article["link"],
-            "score": article["score"],
-            "published": article["published"],
-            "dt_created": datetime.now(timezone.utc),
-            "source": article["source"] if "source" in article else "unknown",
-        }
-        summaries.append(summary)
-        logger.info(f"Ajout du résumé {summary}")
-    return state.model_copy(update={"summaries": summaries})
-
 
 def output_node(state: RSSState) -> RSSState:
     logger.info("📄 Affichage des résultats finaux")
