@@ -10,9 +10,9 @@ MAX_DAYS = int(get_environment_variable("MAX_DAYS", "10"))
 
 def _register_fetchers():
     from services.factory_fetcher import FetcherFactory
-    from services.reedit_fetcher import RedditFetcher
-    from services.rss_fetcher import RSSFetcher
-    from services.bluesky_fetcher import BlueskyFetcher
+    from services.fetchers.reedit_fetcher import RedditFetcher
+    from services.fetchers.rss_fetcher import RSSFetcher
+    from services.fetchers.bluesky_fetcher import BlueskyFetcher
     from services.models import SourceType
 
     FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)

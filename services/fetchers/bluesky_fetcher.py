@@ -1,9 +1,8 @@
 import aiohttp
-from typing import Optional
 from datetime import datetime, timedelta
 import logging
 
-from services.base_fetcher import BaseFetcher
+from services.fetchers.base_fetcher import BaseFetcher
 from services.models import Source, SourceType
 
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +33,7 @@ class BlueskyFetcher(BaseFetcher):
         self.client = Client()
         self.client.login(self.handle, self.password)        
     
+    @measure_time
     def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
         """
         Récupère les posts d'un utilisateur Bluesky ou du feed public

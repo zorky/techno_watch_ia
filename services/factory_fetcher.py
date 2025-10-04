@@ -1,5 +1,5 @@
 from services.models import SourceType
-from services.base_fetcher import BaseFetcher
+from services.fetchers.base_fetcher import BaseFetcher
 
 class FetcherFactory:
     _fetchers = {}

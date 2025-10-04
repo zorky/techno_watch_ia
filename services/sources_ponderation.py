@@ -1,20 +1,21 @@
-import os
-from math import ceil, floor
-from dotenv import load_dotenv
+# import os
+from math import ceil
+# from dotenv import load_dotenv
 import logging
 from services.models import SourceType
 
 logging.basicConfig(level=logging.INFO)
 # logger = logging.getLogger(__name__)
 from core.logger import logger, Fore
+from core import get_environment_variable
 
-load_dotenv()
+# load_dotenv()
 
 def _calculate_quotas(total_count):
     """Calcul des quotas par source selon % donnés en .env"""
-    rss_min = ceil(total_count * float(os.getenv('RSS_WEIGHT', 50)) / 100)
-    reddit_min = ceil(total_count * float(os.getenv('REDDIT_WEIGHT', 30)) / 100)
-    bluesky_min = ceil(total_count * float(os.getenv('BLUESKY_WEIGHT', 20)) / 100)
+    rss_min = ceil(total_count * float(get_environment_variable('RSS_WEIGHT', 50)) / 100)
+    reddit_min = ceil(total_count * float(get_environment_variable('REDDIT_WEIGHT', 30)) / 100)
+    bluesky_min = ceil(total_count * float(get_environment_variable('BLUESKY_WEIGHT', 20)) / 100)
 
     guaranteed_total = rss_min + reddit_min + bluesky_min
     remaining_slots = max(0, total_count - guaranteed_total)
@@ -34,7 +35,7 @@ def _count_recent_rss(rss_articles):
         int: Nombre d'articles RSS récents
     """
     from datetime import datetime, timedelta
-    max_days = int(os.getenv('MAX_DAYS', 5))
+    max_days = int(get_environment_variable('MAX_DAYS', 5))
     cutoff_date = datetime.now() - timedelta(days=max_days)
     
     recent_count = 0
@@ -57,7 +58,7 @@ def _apply_freshness_adjustment(articles_by_source: list[dict], quotas: dict) ->
     recent_rss_ratio = len(articles_rss) / max(1, total_articles_sources)
     logger.info(Fore.YELLOW + f"Ratio RSS récents : {recent_rss_ratio:.2f} ({len(articles_rss)}/{total_articles_sources})") 
 
-    threshold = float(os.getenv('FRESHNESS_BOOST_THRESHOLD', 0.3))
+    threshold = float(get_environment_variable('FRESHNESS_BOOST_THRESHOLD', 0.3))
     
     if recent_rss_ratio < threshold:
         # Peu de RSS récents → redistribuer vers autres sources
@@ -97,7 +98,7 @@ def select_articles_for_summary(articles_by_source: list[dict], max_days: int) -
     Returns:
         Liste des articles sélectionnés et équilibrés
     """
-    total_count = int(os.getenv('LIMIT_ARTICLES_TO_RESUME', 15))
+    total_count = int(get_environment_variable('LIMIT_ARTICLES_TO_RESUME', 15))
     
     # ÉTAPE 1: Calculer les quotas de base (Phase 1)
     quotas = _calculate_quotas(total_count)

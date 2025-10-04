@@ -1,4 +1,4 @@
-import os
+# import os
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -6,23 +6,22 @@ from sentence_transformers import SentenceTransformer
 from langchain_openai import ChatOpenAI
 # from langchain_ollama import ChatOllama
 
-from core.logger import logger
 from colorama import Fore
-from dotenv import load_dotenv
 
-load_dotenv()
+from core.logger import logger
+from core.utils import get_environment_variable
 
 # =========================
 # Configuration du modèle LLM inférence
 # =========================
 
-LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
-LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
-# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
-LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
+LLM_MODEL = get_environment_variable("LLM_MODEL", "mistral")
+LLM_API = get_environment_variable("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
+# LLM_API = get_environment_variable("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
+LLM_TEMPERATURE = float(get_environment_variable("LLM_TEMPERATURE", "0.3"))
 
-TOP_P = float(os.getenv("TOP_P", "0.5"))
-MAX_TOKENS_GENERATE = int(os.getenv("MAX_TOKENS_GENERATE", "300"))
+TOP_P = float(get_environment_variable("TOP_P", "0.5"))
+MAX_TOKENS_GENERATE = int(get_environment_variable("MAX_TOKENS_GENERATE", "300"))
 
 # =========================
 # Configuration LLM local / saas
@@ -52,7 +51,7 @@ def init_llm_chat():
 # https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
 # =========================
 
-MODEL_EMBEDDINGS = "all-MiniLM-L6-v2"
+# MODEL_EMBEDDINGS = "all-MiniLM-L6-v2"
 def get_device_cpu_gpu_info():
     import torch
 
@@ -63,9 +62,9 @@ def get_device_cpu_gpu_info():
     logger.info(Fore.YELLOW + "Aucun GPU disponible, utilisation du CPU.")
     return "cpu"
 
-DEVICE_TYPE = get_device_cpu_gpu_info()
-
 def init_sentence_model():
+    MODEL_EMBEDDINGS = get_environment_variable("MODEL_EMBEDDINGS")
+    DEVICE_TYPE = get_device_cpu_gpu_info()
     logger.info(
         Fore.GREEN + f"Init SentenceTransformer {MODEL_EMBEDDINGS} sur {DEVICE_TYPE}"
     )
