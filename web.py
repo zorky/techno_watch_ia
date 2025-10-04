@@ -5,7 +5,7 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi import Request, Depends
+from fastapi import Request
 
 from dotenv import load_dotenv
 from jinja_filters import register_jinja_filters
@@ -32,9 +32,9 @@ def read_articles(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
     from db import read_articles
     articles = read_articles(date)
-    logger.info(f"Articles lus: len({articles})")
-    for article in articles:
-        logger.info(f"Article: {article.title} - {article.published} {article.source}")   
+    logger.debug(f"Articles lus: len({articles})")
+    # for article in articles:
+    #     logger.info(f"Article: {article.title} - {article.published} {article.source}")   
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "articles": articles}
@@ -80,7 +80,7 @@ def search_articles(
             date_max=date_max,
             limit=limit
         )
-        logger.info(f"Résultats bruts: {results}")
+        logger.debug(f"Résultats bruts: {results}")
         articles = [
             {                
                 "title": row.title,
@@ -92,8 +92,7 @@ def search_articles(
             }
             for row in results
         ]
-    logger.info(f"Recherche '{q}' - {len(articles)} résultats")
-    logger.info(f"Articles: {articles}")
+    logger.info(f"Recherche '{q}' - {len(articles)} résultats")    
     if ajax:        
         # Retourne uniquement le fragment HTML des résultats
         return templates.TemplateResponse(

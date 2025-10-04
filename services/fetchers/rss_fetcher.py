@@ -1,13 +1,13 @@
 import feedparser
 from datetime import datetime, timedelta
 import logging
-
-from services.base_fetcher import BaseFetcher
-from services.models import Source, SourceType
-
 logging.basicConfig(level=logging.INFO)
+
 from core.logger import logger, Fore
 from core import measure_time
+
+from services.fetchers.base_fetcher import BaseFetcher
+from services.models import Source, SourceType
 
 class RSSFetcher(BaseFetcher):
     def get_summary(self, entry: dict):
