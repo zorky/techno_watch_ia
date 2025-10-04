@@ -2,7 +2,8 @@ import os
 import logging
 logging.basicConfig(level=logging.INFO)
 from dotenv import load_dotenv
-from core import logger, get_environment_variable
+from core.logger import logger
+from core.utils import get_environment_variable
 from models.states import RSSState
 
 load_dotenv()
