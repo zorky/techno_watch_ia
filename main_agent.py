@@ -63,16 +63,13 @@ from langchain_openai import ChatOpenAI
 # from langchain_ollama import ChatOllama
 
 import feedparser
-import os
-
-from sentence_transformers import SentenceTransformer
 
 from models.states import RSSState
 from read_opml import parse_opml_to_rss_list
 
 from bs4 import BeautifulSoup
 
-from core import measure_time, argscli
+from core import argscli
 from services.models import Source, SourceType, UnifiedState
 
 from core import logger, get_environment_variable
@@ -94,21 +91,21 @@ logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 
-# LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
-LLM_MODEL = get_environment_variable("LLM_MODEL", "llama")
-LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
-# LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
-LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
+# LLM_MODEL = get_environment_variable("LLM_MODEL", "mistral")
+LLM_MODEL = get_environment_variable("LLM_MODEL", "mistral")
+LLM_API = get_environment_variable("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
+# LLM_API = get_environment_variable("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
+LLM_TEMPERATURE = float(get_environment_variable("LLM_TEMPERATURE", "0.3"))
 # Modèles embeddings disponibles et spécs : https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
 # MODEL_EMBEDDINGS = "all-MiniLM-L6-v2"
 # MODEL_EMBEDDINGS="all-mpnet-base-v2"
 
-FILTER_KEYWORDS = os.getenv("FILTER_KEYWORDS", "").split(",")
-THRESHOLD_SEMANTIC_SEARCH = float(os.getenv("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
-MAX_DAYS = int(os.getenv("MAX_DAYS", "10"))
-OPML_FILE = os.getenv("OPML_FILE", "my.opml")
-# TOP_P = float(os.getenv("TOP_P", "0.5"))
-# MAX_TOKENS_GENERATE = int(os.getenv("MAX_TOKENS_GENERATE", "300"))
+FILTER_KEYWORDS = get_environment_variable("FILTER_KEYWORDS", "").split(",")
+THRESHOLD_SEMANTIC_SEARCH = float(get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
+MAX_DAYS = int(get_environment_variable("MAX_DAYS", "10"))
+OPML_FILE = get_environment_variable("OPML_FILE", "my.opml")
+# TOP_P = float(get_environment_variable("TOP_P", "0.5"))
+# MAX_TOKENS_GENERATE = int(get_environment_variable("MAX_TOKENS_GENERATE", "300"))
 
 # =========================
 # Fonctions utilitaires
@@ -348,7 +345,7 @@ def get_subs_reddit_urls():
     """
     Obtient la liste des URL Reddit à traiter à partir du fichier myreddit.json
     """    
-    MY_REDDIT_FILE = os.getenv("REDDIT_FILE", "myreddit.json")    
+    MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")    
     return load_sources_from_config(MY_REDDIT_FILE, SourceType.REDDIT)
     
 def _show_graph(graph):

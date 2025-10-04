@@ -2,15 +2,13 @@ import os
 import logging
 logging.basicConfig(level=logging.INFO)
 from colorama import Fore
-from dotenv import load_dotenv
 
 from core.logger import logger
 from services.models import UnifiedState
 from models.states import RSSState
-from core.utils import measure_time
+from core.utils import measure_time, get_environment_variable
 
-load_dotenv()
-THRESHOLD_SEMANTIC_SEARCH = float(os.getenv("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
+THRESHOLD_SEMANTIC_SEARCH = float(get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
 
 @measure_time
 def _filter_articles_with_faiss(

@@ -2,12 +2,11 @@ import os
 import logging
 logging.basicConfig(level=logging.INFO)
 from dotenv import load_dotenv
-from colorama import Fore
-from core.logger import logger
+from core import logger, get_environment_variable
 from models.states import RSSState
 
 load_dotenv()
-THRESHOLD_SEMANTIC_SEARCH = float(os.getenv("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
+THRESHOLD_SEMANTIC_SEARCH = float(get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
 
 def send_articles_node(state: RSSState) -> RSSState:
     from send_articles_email import send_watch_articles

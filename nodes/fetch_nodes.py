@@ -1,16 +1,12 @@
-import os
-
-from dotenv import load_dotenv
 from services.factory_fetcher import FetcherFactory
 from services.models import SourceType, UnifiedState
 from core.logger import logger
+from core.utils import get_environment_variable
 
 import logging
 logging.basicConfig(level=logging.INFO)
 
-load_dotenv()
-
-MAX_DAYS = int(os.getenv("MAX_DAYS", "10"))
+MAX_DAYS = int(get_environment_variable("MAX_DAYS", "10"))
 
 def _register_fetchers():
     from services.factory_fetcher import FetcherFactory
@@ -23,14 +19,14 @@ def _register_fetchers():
     FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
     FetcherFactory.register_fetcher(SourceType.BLUESKY, BlueskyFetcher)
 
-def unified_fetch_node(state: UnifiedState) -> UnifiedState:
+def unified_fetch_node(state: UnifiedState) -> UnifiedState:    
     _register_fetchers()
 
-    REDDIT_CLIENT_ID = os.getenv('REDDIT_CLIENT_ID', None)
-    REDDIT_CLIENT_SECRET = os.getenv('REDDIT_CLIENT_SECRET', None)
+    REDDIT_CLIENT_ID = get_environment_variable('REDDIT_CLIENT_ID', None)
+    REDDIT_CLIENT_SECRET = get_environment_variable('REDDIT_CLIENT_SECRET', None)
 
-    BLUESKY_HANDLE = os.getenv("BLUESKY_HANDLE", "your_bluesky_handle.bsky.social")
-    BLUESKY_PASSWORD = os.getenv("BLUESKY_PASSWORD", "app_password")
+    BLUESKY_HANDLE = get_environment_variable("BLUESKY_HANDLE", "your_bluesky_handle.bsky.social")
+    BLUESKY_PASSWORD = get_environment_variable("BLUESKY_PASSWORD", "app_password")
 
     all_articles = []
 

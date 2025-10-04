@@ -1,17 +1,13 @@
-import os
 import logging
 logging.basicConfig(level=logging.INFO)
-from dotenv import load_dotenv
 from colorama import Fore
 
 from core.logger import logger
 from models.states import RSSState
-from core.utils import measure_time
+from core.utils import measure_time, get_environment_variable, argscli
 from services.model_service import set_prompt
 
-load_dotenv()
-
-MAX_DAYS = int(os.getenv("MAX_DAYS", "10"))
+MAX_DAYS = int(get_environment_variable("MAX_DAYS", "10"))
 
 def _calculate_tokens(summary, elapsed):
     """Calcule le nombre approximatif de tokens dans un texte et le débit en tokens/s."""
@@ -22,7 +18,7 @@ def _calculate_tokens(summary, elapsed):
     logger.info(
         f"Résumé : {tokens} tokens - débit approximatif {tokens / elapsed:.2f} tokens/s"
     )
-    
+
 @measure_time
 def _summarize_article(title, content):    
     from services.model_service import init_llm_chat
@@ -30,32 +26,32 @@ def _summarize_article(title, content):
 
     prompt = set_prompt("IA, ingénieurie logicielle et cybersécurité", title, content)
 
-    # if argscli.debug:
-    #     logger.debug(
-    #         Fore.MAGENTA
-    #         + "--- PROMPT ENVOYÉ AU LLM ---\n"
-    #         + prompt
-    #         + "\n---------------------------"
-    #     )
-    #     start = time.time()
+    if argscli.debug:
+        logger.debug(
+            Fore.MAGENTA
+            + "--- PROMPT ENVOYÉ AU LLM ---\n"
+            + prompt
+            + "\n---------------------------"
+        )
+        start = time.time()
 
     # Appel au LLM
     llm = init_llm_chat()
     result = llm.invoke(prompt)
     summary = result.content.strip().strip('"').strip()
 
-    # if argscli.debug:
-    #     end = time.time()
-    #     elapsed = end - start
-    #     _calculate_tokens(summary, elapsed)
+    if argscli.debug:
+        end = time.time()
+        elapsed = end - start
+        _calculate_tokens(summary, elapsed)
 
-    # if argscli.debug:
-    #     logger.debug(
-    #         Fore.MAGENTA
-    #         + "--- RÉPONSE BRUTE DU LLM ---\n"
-    #         + str(result)
-    #         + "\n---------------------------"
-    #     )
+    if argscli.debug:
+        logger.debug(
+            Fore.MAGENTA
+            + "--- RÉPONSE BRUTE DU LLM ---\n"
+            + str(result)
+            + "\n---------------------------"
+        )
 
     # Nettoyage des introductions génériques
     for prefix in ["Voici un résumé :", "Résumé :", "L'article explique que"]:
@@ -69,7 +65,7 @@ def summarize_node(state: RSSState) -> RSSState:
     from services.sources_ponderation import select_articles_for_summary
 
     logger.info("✏️  Résumé des articles filtrés...")
-    LIMIT_ARTICLES_TO_RESUME = int(os.getenv("LIMIT_ARTICLES_TO_RESUME", -1))
+    LIMIT_ARTICLES_TO_RESUME = int(get_environment_variable("LIMIT_ARTICLES_TO_RESUME", -1))
     if LIMIT_ARTICLES_TO_RESUME > 0:
         logger.info(f"Limite de résumé à {LIMIT_ARTICLES_TO_RESUME} articles")
         articles = state.filtered_articles[:LIMIT_ARTICLES_TO_RESUME]
