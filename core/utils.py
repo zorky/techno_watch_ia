@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 from functools import wraps
 import time
 import logging
@@ -71,3 +73,7 @@ def measure_time(func):
         return result
 
     return wrapper
+
+def get_environment_variable(key, default = None):
+    load_dotenv()
+    return os.getenv(key, default)

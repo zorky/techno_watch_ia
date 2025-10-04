@@ -73,13 +73,12 @@ from read_opml import parse_opml_to_rss_list
 from bs4 import BeautifulSoup
 
 from core import measure_time, argscli
-# from services.factory_fetcher import FetcherFactory
 from services.models import Source, SourceType, UnifiedState
 
-from core import logger
+from core import logger, get_environment_variable
 
-from nodes import unified_fetch_node, filter_node, summarize_node
-# from services.model_service import init_sentence_model #, model
+from nodes import unified_fetch_node, filter_node, summarize_node, \
+                  output_node, save_articles_node, send_articles_node
 
 # =========================
 # Init du logging et logger
@@ -95,7 +94,8 @@ logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 
-LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
+# LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
+LLM_MODEL = get_environment_variable("LLM_MODEL", "llama")
 LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
 # LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
@@ -239,49 +239,6 @@ def create_legacy_wrapper(legacy_node_func):
 
     return wrapper
 
-def output_node(state: RSSState) -> RSSState:
-    logger.info("📄 Affichage des résultats finaux")
-    for item in state.summaries:
-        print(
-            Fore.CYAN
-            + f"\n📰 {item['title']}\n"
-            + Fore.CYAN
-            + f"\n📈 {item['score']}\n"
-            + Fore.GREEN
-            + f"📝 {item['summary']}\n"
-            + Fore.BLUE
-            + f"🔗 {item['link']}\n"
-            + f"⏱️ {item['published']}"
-            + f"📡 {item['source']}"
-        )
-    return state
-
-
-def send_articles(state: RSSState) -> RSSState:
-    from send_articles_email import send_watch_articles
-    from models.emails import EmailTemplateParams
-
-    logger.info("Envoi mail des articles")
-    logger.info(f"Envoi de {len(state.summaries)} articles")
-    if len(state.summaries) > 0:
-        _params_mail = EmailTemplateParams(
-            articles=state.summaries,
-            keywords=state.keywords,
-            threshold=THRESHOLD_SEMANTIC_SEARCH,
-        )
-        send_watch_articles(_params_mail)
-    return state
-
-
-def save_articles(state: RSSState) -> RSSState:
-    from db.db import save_to_db
-
-    logger.info("Sauvegarde des articles résumés en DB")
-    if len(state.summaries) > 0:
-        save_to_db(state.summaries)
-    return state
-
-
 # =========================
 # Construction du graphe : noeuds (nodes) et transitions (edges)
 # fetch -> filter -> summarize -> output
@@ -296,10 +253,10 @@ def make_graph():
     graph.add_node("summarize", RunnableLambda(create_legacy_wrapper(summarize_node)))
     graph.add_node("displayoutput", RunnableLambda(create_legacy_wrapper(output_node)))
     graph.add_node(
-        "savedbsummaries", RunnableLambda(create_legacy_wrapper(save_articles))
+        "savedbsummaries", RunnableLambda(create_legacy_wrapper(save_articles_node))
     )
     graph.add_node(
-        "sendsummaries", RunnableLambda(create_legacy_wrapper(send_articles))
+        "sendsummaries", RunnableLambda(create_legacy_wrapper(send_articles_node))
     )
 
     graph.set_entry_point("fetch")

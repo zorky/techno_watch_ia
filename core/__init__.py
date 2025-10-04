@@ -1,7 +1,8 @@
-from .utils import measure_time, logger, argscli
+from .utils import measure_time, get_environment_variable, logger, argscli
 
 __all__ = [
     'measure_time',
     'logger',
-    'argscli'
+    'argscli',
+    'get_environment_variable'
 ]

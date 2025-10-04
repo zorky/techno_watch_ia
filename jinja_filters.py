@@ -62,7 +62,7 @@ def icon_html(source: SourceType, size: int = 24, email: bool = False) -> str:
         "linkedin": "💼",
         "twitter": "🐦",
     }
-    logging.info(f"icon_html: icon_path={icon_path}")
+    # logging.info(f"icon_html: icon_path={icon_path}")
         
     if not icon_path.exists(): # fallback si le chemin n'existe pas        
         logging.error(f"Le chemin des icônes n'existe pas: {icon_path}")
@@ -72,7 +72,7 @@ def icon_html(source: SourceType, size: int = 24, email: bool = False) -> str:
             return Markup(f'<span class="text-{size//4}">{FALLBACK_EMOJIS.get(source, "🔗")}</span>')
     
     if email:                             
-        logging.info(f"icon_html: icon_path={icon_path}")                
+        # logging.info(f"icon_html: icon_path={icon_path}")                
         with open(icon_path, "rb") as f:
             svg_base64 = base64.b64encode(f.read()).decode("utf-8")
             return Markup(f'<img src="data:image/svg+xml;base64,{svg_base64}" alt="{source}" width="{size}" height="{size}" style="vertical-align: middle;">')
