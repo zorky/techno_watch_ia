@@ -73,12 +73,13 @@ from read_opml import parse_opml_to_rss_list
 from bs4 import BeautifulSoup
 
 from core import measure_time, argscli
-from services.factory_fetcher import FetcherFactory
+# from services.factory_fetcher import FetcherFactory
 from services.models import Source, SourceType, UnifiedState
 
 from core import logger
 
-from nodes import unified_fetch_node
+from nodes import unified_fetch_node, filter_node
+from services.model_service import init_sentence_model #, model
 
 # =========================
 # Init du logging et logger
@@ -99,7 +100,7 @@ LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOp
 # LLM_API = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
 # Modèles embeddings disponibles et spécs : https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
-MODEL_EMBEDDINGS = "all-MiniLM-L6-v2"
+# MODEL_EMBEDDINGS = "all-MiniLM-L6-v2"
 # MODEL_EMBEDDINGS="all-mpnet-base-v2"
 
 FILTER_KEYWORDS = os.getenv("FILTER_KEYWORDS", "").split(",")
@@ -130,46 +131,11 @@ def init_llm_chat():
     #     # num_predict=MAX_TOKENS,
     # )
 
-
 llm = init_llm_chat()
-
-# =========================
-# Configuration du modèle d'embeddings
-# Modèles disponibles et spécs :
-# https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
-# =========================
-
-
-def get_device_cpu_gpu_info():
-    import torch
-
-    if torch.cuda.is_available():
-        gpu_name = torch.cuda.get_device_name(0)
-        logger.info(Fore.GREEN + f"GPU disponible : {gpu_name}")
-        return "cuda"
-    logger.info(Fore.YELLOW + "Aucun GPU disponible, utilisation du CPU.")
-    return "cpu"
-
-
-DEVICE_TYPE = get_device_cpu_gpu_info()
-
-
-def init_sentence_model():
-    logger.info(
-        Fore.GREEN + f"Init SentenceTransformer {MODEL_EMBEDDINGS} sur {DEVICE_TYPE}"
-    )
-    return SentenceTransformer(MODEL_EMBEDDINGS, device=DEVICE_TYPE)
-    # return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=DEVICE_TYPE)  # bon compromis pour le français/anglais
-    # return SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=DEVICE_TYPE)  # Optimisé pour la similarité
-
-
-model = init_sentence_model()
-
 
 # =========================
 # Fonctions utilitaires
 # =========================
-
 
 def preprocess_text(text):
     """For tests purposes - Prétraitement simple : tokenization, suppression des stopwords, lemmatisation."""
@@ -195,90 +161,6 @@ def preprocess_text(text):
     lemmatizer = WordNetLemmatizer()
     tokens = [lemmatizer.lemmatize(t) for t in tokens]
     return " ".join(tokens)
-
-
-@measure_time
-def filter_articles_with_faiss(
-    articles,
-    keywords: list[str],
-    threshold=0.7,
-    index_path="keywords_index.faiss",
-    show_progress=False,
-):
-    """
-    Filtre les articles par similarité sémantique avec les mots-clés.
-    :param articles: Liste de dicts avec 'title' et 'summary'
-    :param keywords: Liste de mots-clés
-    :param threshold: Seuil de similarité (0 à 1)
-    :return: Articles filtrés
-    """
-    import faiss
-
-    logger.info(f"Filtrage sémantique avec les mots-clés {keywords}")
-    logger.info(f"Filtrage sémantique avec seuil {threshold}...")
-
-    @measure_time
-    def get_or_create_index(keywords, model, index_path):
-        if os.path.exists(index_path):
-            logger.info("🔍 Chargement de l'index FAISS existant...")
-            return faiss.read_index(index_path)
-        else:
-            logger.info("🔧 Création d'un nouvel index FAISS...")
-            keyword_embeddings = model.encode(
-                keywords, convert_to_tensor=True, show_progress_bar=show_progress
-            )
-            keyword_embeddings = keyword_embeddings.cpu().numpy()
-            faiss.normalize_L2(keyword_embeddings)
-            index = faiss.IndexFlatIP(
-                keyword_embeddings.shape[1]
-            )  # Produit scalaire équivalent similarité cos
-            index.add(keyword_embeddings)
-
-            faiss.write_index(index, index_path)
-            return index
-
-    # Créer un index FAISS pour le produit scalaire (similarité cosinus)
-    index = get_or_create_index(keywords, model, index_path)
-
-    filtered = []
-    for article in articles:
-        text = f"{article['title']} {article['summary']}".strip()
-        if not text:
-            continue
-        # cleaned_text = preprocess_text(text)
-
-        article_embedding = model.encode(
-            [text], convert_to_tensor=True, show_progress_bar=False
-        )
-        article_embedding = article_embedding.cpu().numpy()
-        faiss.normalize_L2(article_embedding)  # Normaliser l'embedding de l'article
-
-        # Recherche
-        similarities, indices = index.search(
-            article_embedding, k=len(keywords)
-        )  # k = top N mot-clé le plus proche
-        max_similarity = similarities[0].max()  # La similarité est déjà entre 0 et 1
-
-        if max_similarity >= threshold:
-            matched_keywords = [
-                keywords[i] for i in indices[0] if similarities[0][i] >= threshold
-            ]
-            # logger.info(
-            #     f"Similarities: {similarities[0]}, Indices: {indices[0]}"
-            # )
-            logger.info(
-                f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']} {article['link']}"
-            )            
-            article["score"] = f"{max_similarity * 100:.1f}"
-            logger.info(Fore.CYAN + f"{article['title']} {article['source']} -> {article['score']}")
-            # logger.info(Fore.CYAN + Style.DIM + f"{article['source']}")
-            filtered.append(article)
-
-    logger.info(
-        f"📊 {len(filtered)}/{len(articles)} articles après filtrage sémantique (seuil={threshold})"
-    )
-    return filtered
-
 
 def set_prompt(theme, title, content):
     prompt = f"""Tu es un expert en {theme}. Résume **uniquement** l'article ci-dessous en **3 phrases maximales**, en français, avec :
@@ -487,17 +369,6 @@ def create_legacy_wrapper(legacy_node_func):
         )
 
     return wrapper
-
-def filter_node(state: UnifiedState) -> RSSState:
-    logger.info("🔍 Filtrage des articles par mots-clés...")
-
-    filtered = filter_articles_with_faiss(
-        state.articles, state.keywords, threshold=THRESHOLD_SEMANTIC_SEARCH
-    )
-    logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
-
-    return state.model_copy(update={"filtered_articles": filtered})
-
 
 def summarize_node(state: RSSState) -> RSSState:
     from datetime import datetime, timezone

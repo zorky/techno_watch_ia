@@ -8,7 +8,6 @@ from core.logger import logger
 import logging
 logging.basicConfig(level=logging.INFO)
 
-
 load_dotenv()
 
 MAX_DAYS = int(os.getenv("MAX_DAYS", "10"))
