@@ -1,3 +1,4 @@
+from functools import lru_cache
 from services.factory_fetcher import FetcherFactory
 from services.models import Source, SourceType, UnifiedState
 from core.logger import logger
@@ -66,6 +67,13 @@ def fetch_rss_node(state: UnifiedState) -> dict:
     
     return {"rss_articles": all_articles}
 
+@lru_cache(maxsize=1)
+def _load_json_reddit_bluesky(config_path):
+    import json
+    
+    with open(config_path, 'r') as f:
+        return json.load(f)    
+
 # def _load_sources_from_config(config_path: str, type_source: SourceType) -> list[Source]:
 def _load_sources_from_config(config_path: str, type_source: str) -> list[Source]:
     """
@@ -88,15 +96,13 @@ def _load_sources_from_config(config_path: str, type_source: str) -> list[Source
         ]
     }
     """
-    import json
     
-    with open(config_path, 'r') as f:
-        config = json.load(f)
-    
+    config = _load_json_reddit_bluesky(config_path)
+
     logger.info(Fore.LIGHTRED_EX + f"Source pour {type_source}")
     sources = []
     for source_config in config.get('sources', []):
-        logger.info(f"filter sources Reddit ou Bluesky {source_config['type']} {type_source}")
+        logger.info(Fore.RED + f"filter sources Reddit ou Bluesky {source_config['type']} {type_source} : {source_config['type'] == type_source}")
                      
         if source_config['type'] == type_source:
             # logger.info(f"Oui c'est REDDIT {source_config['type'] == type_source}")   
@@ -123,14 +129,16 @@ def _get_subs_reddit_urls():
     Obtient la liste des URL Reddit à traiter à partir du fichier myreddit.json
     """    
     MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")    
-    return _load_sources_from_config(MY_REDDIT_FILE, SourceType.REDDIT.value)
+    # return _load_sources_from_config(MY_REDDIT_FILE, SourceType.REDDIT.value)
+    return _load_sources_from_config(MY_REDDIT_FILE, "reddit")
 
 def _get_bluesky_urls():
     """
     Obtient la liste des URL Bluesky à traiter à partir du fichier myreddit.json
     """    
     MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")    
-    return _load_sources_from_config(MY_REDDIT_FILE, SourceType.BLUESKY.value)
+    return _load_sources_from_config(MY_REDDIT_FILE, "bluesky")
+    # return _load_sources_from_config(MY_REDDIT_FILE, SourceType.BLUESKY.value)
 
 def fetch_reddit_node(state: UnifiedState) -> dict:
     """fetch des canaux Reddit"""
