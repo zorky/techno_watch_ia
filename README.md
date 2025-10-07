@@ -111,7 +111,7 @@ $ python main_agent_rss.py --debug
 
 ```bash
 $ uvicorn web:app --reload
-```bash
+```
 
 Sur http://127.0.0.1:8000/
 
