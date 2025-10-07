@@ -174,16 +174,21 @@ def create_legacy_wrapper(legacy_node_func):
 # fetch -> filter -> summarize -> output
 # =========================
 def make_graph():
+    from nodes import dispatch_node, fetch_rss_node, merge_fetched_articles
     # graph = StateGraph(RSSState)
     # graph.add_node("fetch", RunnableLambda(fetch_node))
 
     graph = StateGraph(UnifiedState)
 
     # à splitter en des noeuds fetcher pour exécution //
-    graph.add_node("fetch", RunnableLambda(unified_fetch_node)) 
+    # graph.add_node("fetch", RunnableLambda(unified_fetch_node)) 
+    graph.add_node("dispatch", RunnableLambda(dispatch_node))
+
+    # noeuds fetchers
+    graph.add_node("fetch_rss", RunnableLambda(fetch_rss_node))
 
     # noeud de fusion des N fetchers précédents
-    # graph.add_node("merge_articles", RunnableLambda(merge_fetched_articles))
+    graph.add_node("merge_articles", RunnableLambda(merge_fetched_articles))
 
     graph.add_node("filter", RunnableLambda(create_legacy_wrapper(filter_node)))
     graph.add_node("summarize", RunnableLambda(create_legacy_wrapper(summarize_node)))
@@ -195,8 +200,15 @@ def make_graph():
         "sendsummaries", RunnableLambda(create_legacy_wrapper(send_articles_node))
     )
 
-    graph.set_entry_point("fetch")
-    graph.add_edge("fetch", "filter")
+    # les transitions entre les noeuds
+    # graph.set_entry_point("fetch")
+    graph.set_entry_point("dispatch")
+    graph.add_edge("dispatch", "fetch_rss")
+    graph.add_edge("fetch_rss", "merge_articles")
+    
+    graph.add_edge("merge_articles", "filter")
+    # graph.add_edge("fetch", "filter")
+    
     graph.add_edge("filter", "summarize")
     graph.add_edge("summarize", "displayoutput")
     graph.add_edge("displayoutput", "savedbsummaries")
