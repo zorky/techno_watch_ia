@@ -99,7 +99,7 @@ def _load_sources_from_config(config_path: str, type_source: str) -> list[Source
         logger.info(f"filter sources Reddit ou Bluesky {source_config['type']} {type_source}")
                      
         if source_config['type'] == type_source:
-            logger.info(f"Oui c'est REDDIT {source_config['type'] == type_source}")   
+            # logger.info(f"Oui c'est REDDIT {source_config['type'] == type_source}")   
             sources.append(Source(
                 type=SourceType.REDDIT,
                 url=f"reddit.com/r/{source_config['subreddit']}",
@@ -125,6 +125,13 @@ def _get_subs_reddit_urls():
     MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")    
     return _load_sources_from_config(MY_REDDIT_FILE, SourceType.REDDIT.value)
 
+def _get_bluesky_urls():
+    """
+    Obtient la liste des URL Bluesky à traiter à partir du fichier myreddit.json
+    """    
+    MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")    
+    return _load_sources_from_config(MY_REDDIT_FILE, SourceType.BLUESKY.value)
+
 def fetch_reddit_node(state: UnifiedState) -> dict:
     """fetch des canaux Reddit"""
     REDDIT_CLIENT_ID = get_environment_variable('REDDIT_CLIENT_ID', None)
@@ -145,15 +152,23 @@ def fetch_reddit_node(state: UnifiedState) -> dict:
     # state.model_copy n'est pas possible sans quelques hack dans un graphe en //
     return {"reddit_articles": all_articles}
 
-def fetch_bluesky_node(state: UnifiedState) -> UnifiedState:
+def fetch_bluesky_node(state: UnifiedState) -> dict:
     BLUESKY_HANDLE = get_environment_variable("BLUESKY_HANDLE", "your_bluesky_handle.bsky.social")
     BLUESKY_PASSWORD = get_environment_variable("BLUESKY_PASSWORD", "app_password")
 
-    FetcherFactory.create_fetcher(
+    fetcher_bluesky = FetcherFactory.create_fetcher(
             SourceType.BLUESKY,
             handle=BLUESKY_HANDLE,
             password=BLUESKY_PASSWORD
-    )
+    )    
+    sources_url = _get_bluesky_urls()
+    logger.info(Fore.LIGHTGREEN_EX + f"sources Reddit : {sources_url}")
+    all_articles = _fetch_articles(fetcher_bluesky, sources_url)    
+    
+    logger.info(Fore.CYAN + f"fetcher_bluesky_node : {len(all_articles)} articles Bluesky :")  
+
+    # state.model_copy n'est pas possible sans quelques hack dans un graphe en //
+    return {"bluesky_articles": all_articles}
 
 def dispatch_node(state: UnifiedState) -> UnifiedState:
     """dispatcher vers les noeuds fetchers"""

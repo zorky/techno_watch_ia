@@ -1,4 +1,4 @@
-from .fetch_nodes import dispatch_node, fetch_rss_node, fetch_reddit_node, merge_fetched_articles
+from .fetch_nodes import dispatch_node, fetch_rss_node, fetch_reddit_node, fetch_bluesky_node, merge_fetched_articles
 from .filter_nodes import filter_node
 from .summarize_nodes import summarize_node
 from .output_nodes import output_node
@@ -9,6 +9,7 @@ __all__ = [
     "dispatch_node",
     "fetch_rss_node",
     "fetch_reddit_node",
+    "fetch_bluesky_node",
 
     "merge_fetched_articles",
 
