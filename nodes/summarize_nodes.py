@@ -4,6 +4,7 @@ from colorama import Fore
 
 from core.logger import logger
 from models.states import RSSState
+from services.models import SourceType, UnifiedState
 from core.utils import measure_time, get_environment_variable, argscli
 from services.model_service import set_prompt
 
@@ -60,7 +61,7 @@ def _summarize_article(title, content):
     return summary
 
 
-def summarize_node(state: RSSState) -> RSSState:
+def summarize_node(state: UnifiedState) -> UnifiedState:
     from datetime import datetime, timezone
     from services.sources_ponderation import select_articles_for_summary
 
@@ -73,8 +74,10 @@ def summarize_node(state: RSSState) -> RSSState:
         logger.info("Pas de limite sur le nombre d'articles à résumer")
         articles = state.filtered_articles
     # dict Article : 'title', 'summary', 'link', 'published', 'score', 'source'        
-    article = articles[0]
-    logger.info(f"** 1er article à résumer : {article.keys()} {article.values()}")
+    # article = articles[0]
+    # logger.info(f"** 1er article à résumer : {article.keys()} {article.values()}")
+    logger.info(f"{len(articles)} à résumer :")
+    logger.info(f"{articles}")
     articles_to_summarise = select_articles_for_summary(articles, MAX_DAYS)
     logger.info(f"{len(articles_to_summarise)} articles sélectionnés pour résumé")
     summaries = []

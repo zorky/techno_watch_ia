@@ -74,7 +74,7 @@ from services.models import Source, SourceType, UnifiedState
 
 from core import logger, get_environment_variable
 
-from nodes import unified_fetch_node, filter_node, summarize_node, \
+from nodes import filter_node, summarize_node, \
                   output_node, save_articles_node, send_articles_node
 
 # =========================
@@ -174,7 +174,7 @@ def create_legacy_wrapper(legacy_node_func):
 # fetch -> filter -> summarize -> output
 # =========================
 def make_graph():
-    from nodes import dispatch_node, fetch_rss_node, merge_fetched_articles
+    from nodes import dispatch_node, fetch_rss_node, fetch_reddit_node, merge_fetched_articles
     # graph = StateGraph(RSSState)
     # graph.add_node("fetch", RunnableLambda(fetch_node))
 
@@ -186,12 +186,13 @@ def make_graph():
 
     # noeuds fetchers
     graph.add_node("fetch_rss", RunnableLambda(fetch_rss_node))
+    graph.add_node("fetch_reddit", RunnableLambda(fetch_reddit_node))
 
     # noeud de fusion des N fetchers précédents
     graph.add_node("merge_articles", RunnableLambda(merge_fetched_articles))
 
-    graph.add_node("filter", RunnableLambda(create_legacy_wrapper(filter_node)))
-    graph.add_node("summarize", RunnableLambda(create_legacy_wrapper(summarize_node)))
+    graph.add_node("filter", RunnableLambda(filter_node))
+    graph.add_node("summarize", RunnableLambda(summarize_node))
     graph.add_node("displayoutput", RunnableLambda(create_legacy_wrapper(output_node)))
     graph.add_node(
         "savedbsummaries", RunnableLambda(create_legacy_wrapper(save_articles_node))
@@ -199,15 +200,21 @@ def make_graph():
     graph.add_node(
         "sendsummaries", RunnableLambda(create_legacy_wrapper(send_articles_node))
     )
-
+    #
     # les transitions entre les noeuds
-    # graph.set_entry_point("fetch")
+    #
+
+    # dispatch vers les fetchers
     graph.set_entry_point("dispatch")
     graph.add_edge("dispatch", "fetch_rss")
-    graph.add_edge("fetch_rss", "merge_articles")
+    graph.add_edge("dispatch", "fetch_reddit")
     
-    graph.add_edge("merge_articles", "filter")
-    # graph.add_edge("fetch", "filter")
+    # des fetchers vers le noeud de fusion des articles    
+    graph.add_edge("fetch_rss", "merge_articles")
+    graph.add_edge("fetch_reddit", "merge_articles")
+    
+    # on fusionne le tout
+    graph.add_edge("merge_articles", "filter")    
     
     graph.add_edge("filter", "summarize")
     graph.add_edge("summarize", "displayoutput")
@@ -216,89 +223,6 @@ def make_graph():
 
     return graph.compile()
 
-def get_rss_urls():
-    """
-    Obtient la liste des URL RSS à traiter à partir des variables d'environnement.
-    Le .env ne contient que des types string et au format JSON
-    """
-    logger.info("Obtention des URL RSS à traiter...")
-    rss_list_opml = parse_opml_to_rss_list(OPML_FILE)
-
-    return [
-        Source(
-            type=SourceType.RSS, name=feed.titre, url=feed.lien_rss, link=feed.lien_web
-        )
-        for feed in rss_list_opml
-        if (
-            logger.debug(f"Flux RSS : {feed.titre} - {feed.lien_rss} - {feed.lien_web}")
-            or True
-        )
-    ]
-
-def load_sources_from_config(config_path: str, type_source: SourceType) -> list[Source]:
-    """
-    Support pour un fichier JSON qui peut inclure Reddit et Bluesky
-    Exemple de structure :
-    {
-        "sources": [            
-            {
-                "type": "reddit",
-                "subreddit": "MachineLearning",
-                "name": "ML Reddit",
-                "sort_by": "hot",
-                "time_filter": "day"
-            },
-            {
-                "type": "bluesky",
-                "url": "@user.bsky.social",
-                "name": "Tech Expert"
-            },
-            {
-                "type": "bluesky",
-                "url": "firehose",
-                "name": "Bluesky Public Feed"
-            }
-        ]
-    }
-    """
-    import json
-    
-    with open(config_path, 'r') as f:
-        config = json.load(f)
-    
-    sources = []
-    for source_config in config.get('sources', []):
-        if source_config['type'] == type_source.REDDIT:
-            sources.append(Source(
-                type=SourceType.REDDIT,
-                url=f"reddit.com/r/{source_config['subreddit']}",
-                name=source_config.get('name'),
-                subreddit=source_config['subreddit'],
-                sort_by=source_config.get('sort_by', 'hot'),
-                time_filter=source_config.get('time_filter', 'day')
-            ))
-        elif source_config['type'] == type_source.BLUESKY:
-            sources.append(Source(
-                type=SourceType.BLUESKY,
-                url=source_config['url'],
-                name=source_config.get('name')
-            ))
-        # else:  # RSS
-        #     sources.append(Source(
-        #         type=SourceType.RSS,
-        #         url=source_config['url'],
-        #         name=source_config.get('name')
-        #     ))
-    
-    return sources
-
-def get_subs_reddit_urls():
-    """
-    Obtient la liste des URL Reddit à traiter à partir du fichier myreddit.json
-    """    
-    MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")    
-    return load_sources_from_config(MY_REDDIT_FILE, SourceType.REDDIT)
-    
 def _show_graph(graph):
     """Affichage du graphe / automate LangGraph qui est utilisé"""
 
@@ -332,14 +256,9 @@ def _show_graph(graph):
     except Exception as e:
         logger.error(f"{e}")
 
-def prepare_data():
-    sources_urls = get_rss_urls()
-    reddit_subs= get_subs_reddit_urls()
-    sources_urls.extend(reddit_subs)
-
-    logger.info(f"{len(sources_urls)} flux RSS à traiter")
-    initial_state = UnifiedState(
-        sources=sources_urls,
+def prepare_data():    
+    initial_state = UnifiedState(        
+        sources=[],
         keywords=FILTER_KEYWORDS
         if FILTER_KEYWORDS != [""]
         else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],

@@ -93,7 +93,7 @@ def _filter_articles_with_faiss(
     )
     return filtered
 
-def filter_node(state: UnifiedState) -> RSSState:
+def filter_node(state: UnifiedState) -> UnifiedState:
     logger.info("🔍 Filtrage des articles par mots-clés...")
 
     filtered = _filter_articles_with_faiss(
