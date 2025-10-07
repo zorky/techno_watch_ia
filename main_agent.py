@@ -136,73 +136,6 @@ def preprocess_text(text):
     tokens = [lemmatizer.lemmatize(t) for t in tokens]
     return " ".join(tokens)
 
-def strip_html(text: str) -> str:
-    """Supprime les balises HTML d'un texte pour n'avoir que du texte brut."""
-    return BeautifulSoup(text, "html.parser").get_text()
-
-
-def get_summary(entry: dict):
-    """
-    Affiche le résumé ou le contenu d'une entrée de flux RSS ou Atom
-       RSS 2.0: 'summary'
-       Atom: 'content'
-
-    Args:
-        entry: Une entrée de flux RSS/Atom.
-    """
-    if "content" in entry.keys():
-        content: list[feedparser.FeedParserDict] = entry.get("content", [dict])
-        return content[0].get("value", "Pas de résumé")
-
-    return entry.get("summary", "Pas de résumé")
-
-
-def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
-    """
-    A partir du contenu d'une entrée entry, ajoute un article récent à la liste des articles à traiter.
-
-    Args:
-        entry: Un article du flux RSS/Atom.
-        articles: La liste des articles à traiter.
-        cutoff_date: La date limite pour qu'un article soit considéré comme récent.
-        recent_in_feed: Le compteur d'articles récents dans le flux actuel.
-    """
-    # Récupération de la date de publication (priorité à published, sinon updated)
-    published_time = None
-    if hasattr(entry, "published_parsed"):
-        published_time = datetime(*entry.published_parsed[:6])
-    elif hasattr(entry, "updated_parsed"):
-        published_time = datetime(*entry.updated_parsed[:6])
-
-    # Vérification de la date
-    is_recent = published_time and (published_time >= cutoff_date)
-    logger.debug(
-        f"Article: {getattr(entry, 'title', 'Sans titre')} "
-        f"(publié le {published_time}) : {'récent' if is_recent else 'trop ancien' if published_time else 'date inconnue'}"
-    )
-
-    if is_recent:
-        # Normalisation des champs (RSS/Atom)
-        title = getattr(entry, "title", "Sans titre")
-        summary = get_summary(entry)
-        summary = strip_html(summary)  # Nettoyage du HTML
-        logger.debug(f"Résumé brut (après nettoyage) : {summary}")
-        link = getattr(entry, "link", "#")
-        if isinstance(link, list):  # Cas Atom où link est un objet
-            link = link[0].href if link else "#"
-        logger.info(Fore.GREEN + f"🆕 Article récent : {title} ({link})")
-        articles.append(
-            {
-                "title": title,
-                "summary": summary,
-                "link": link,
-                "published": published_time.isoformat() if published_time else None,
-                "score": "0 %",
-            }
-        )
-        recent_in_feed += 1
-    return recent_in_feed
-
 # =========================
 # Nœuds du graphe
 # =========================
@@ -245,7 +178,13 @@ def make_graph():
     # graph.add_node("fetch", RunnableLambda(fetch_node))
 
     graph = StateGraph(UnifiedState)
-    graph.add_node("fetch", RunnableLambda(unified_fetch_node))
+
+    # à splitter en des noeuds fetcher pour exécution //
+    graph.add_node("fetch", RunnableLambda(unified_fetch_node)) 
+
+    # noeud de fusion des N fetchers précédents
+    # graph.add_node("merge_articles", RunnableLambda(merge_fetched_articles))
+
     graph.add_node("filter", RunnableLambda(create_legacy_wrapper(filter_node)))
     graph.add_node("summarize", RunnableLambda(create_legacy_wrapper(summarize_node)))
     graph.add_node("displayoutput", RunnableLambda(create_legacy_wrapper(output_node)))

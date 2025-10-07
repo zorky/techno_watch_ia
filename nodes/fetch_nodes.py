@@ -19,6 +19,23 @@ def _register_fetchers():
     FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
     FetcherFactory.register_fetcher(SourceType.BLUESKY, BlueskyFetcher)
 
+def fetch_rss_node(state: UnifiedState) -> UnifiedState:
+    ...
+
+def fetch_reddit_node(state: UnifiedState) -> UnifiedState:
+    ...
+
+def fetch_bluesky_node(state: UnifiedState) -> UnifiedState:
+    ...
+
+def dispatch_node(state: UnifiedState) -> UnifiedState:
+    """dispatcher vers les fetchers"""
+    ...
+
+def merge_fetched_articles(state: UnifiedState) -> UnifiedState:
+    """Noeud de fusion des données ramenés par les fetchers"""
+    ...
+
 def unified_fetch_node(state: UnifiedState) -> UnifiedState:    
     _register_fetchers()
 
