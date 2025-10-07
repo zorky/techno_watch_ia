@@ -79,6 +79,7 @@ def _load_sources_from_config(config_path: str, type_source: str) -> list[Source
     """
     Support pour un fichier JSON qui peut inclure Reddit et Bluesky
     Exemple de structure :
+    REDDIT
     {
         "sources": [            
             {
@@ -88,6 +89,10 @@ def _load_sources_from_config(config_path: str, type_source: str) -> list[Source
                 "sort_by": "hot",
                 "time_filter": "day"
             },
+    }
+    BLUESKY
+    {
+        "sources": [
             {
                 "type": "bluesky",
                 "url": "@user.bsky.social",
@@ -102,10 +107,8 @@ def _load_sources_from_config(config_path: str, type_source: str) -> list[Source
     logger.info(Fore.LIGHTRED_EX + f"Source pour {type_source}")
     sources = []
     for source_config in config.get('sources', []):
-        logger.info(Fore.RED + f"filter sources Reddit ou Bluesky {source_config['type']} {type_source} : {source_config['type'] == type_source}")
-                     
-        if source_config['type'] == type_source:
-            # logger.info(f"Oui c'est REDDIT {source_config['type'] == type_source}")   
+        logger.info(Fore.RED + f"filter sources Reddit ou Bluesky {type_source}")
+        if type_source == 'reddit':
             sources.append(Source(
                 type=SourceType.REDDIT,
                 url=f"reddit.com/r/{source_config['subreddit']}",
@@ -113,15 +116,14 @@ def _load_sources_from_config(config_path: str, type_source: str) -> list[Source
                 subreddit=source_config['subreddit'],
                 sort_by=source_config.get('sort_by', 'hot'),
                 time_filter=source_config.get('time_filter', 'day')
-            ))        
-        elif source_config['type'] == type_source:
-            logger.info(f"Oui c'est BLUESKY {source_config['type'] == type_source}")
+            ))     
+        if type_source == 'bluesky':
             sources.append(Source(
                 type=SourceType.BLUESKY,
                 url=source_config['url'],
                 name=source_config.get('name')
-            ))        
-    
+            ))    
+
     return sources
 
 def _get_subs_reddit_urls():
@@ -129,16 +131,16 @@ def _get_subs_reddit_urls():
     Obtient la liste des URL Reddit à traiter à partir du fichier myreddit.json
     """    
     MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")    
-    # return _load_sources_from_config(MY_REDDIT_FILE, SourceType.REDDIT.value)
-    return _load_sources_from_config(MY_REDDIT_FILE, "reddit")
+    return _load_sources_from_config(MY_REDDIT_FILE, SourceType.REDDIT.value)
+    # return _load_sources_from_config(MY_REDDIT_FILE, "reddit")
 
 def _get_bluesky_urls():
     """
     Obtient la liste des URL Bluesky à traiter à partir du fichier myreddit.json
     """    
-    MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")    
-    return _load_sources_from_config(MY_REDDIT_FILE, "bluesky")
-    # return _load_sources_from_config(MY_REDDIT_FILE, SourceType.BLUESKY.value)
+    BLUESKY_FILE = get_environment_variable("BLUESKY_FILE", "mybluesky.json")    
+    # return _load_sources_from_config(BLUESKY_FILE, "bluesky")
+    return _load_sources_from_config(BLUESKY_FILE, SourceType.BLUESKY.value)
 
 def fetch_reddit_node(state: UnifiedState) -> dict:
     """fetch des canaux Reddit"""
@@ -214,50 +216,3 @@ def merge_fetched_articles(state: UnifiedState) -> dict:
     logger.info(f"merge des articles : {len(all_articles)}")
     return state.model_copy(update={"articles": all_articles}) 
     
-
-# def unified_fetch_node(state: UnifiedState) -> UnifiedState:    
-#     _register_fetchers()
-
-#     REDDIT_CLIENT_ID = get_environment_variable('REDDIT_CLIENT_ID', None)
-#     REDDIT_CLIENT_SECRET = get_environment_variable('REDDIT_CLIENT_SECRET', None)
-
-#     BLUESKY_HANDLE = get_environment_variable("BLUESKY_HANDLE", "your_bluesky_handle.bsky.social")
-#     BLUESKY_PASSWORD = get_environment_variable("BLUESKY_PASSWORD", "app_password")
-
-#     all_articles = []
-
-#     # Configuration des fetchers
-#     fetchers = {
-#         SourceType.RSS: FetcherFactory.create_fetcher(SourceType.RSS),
-#         SourceType.REDDIT: FetcherFactory.create_fetcher(
-#             SourceType.REDDIT,
-#             client_id=REDDIT_CLIENT_ID,
-#             client_secret=REDDIT_CLIENT_SECRET,
-#             user_agent="TechnoWatch 1.0"
-#         ),
-#         SourceType.BLUESKY: FetcherFactory.create_fetcher(
-#             SourceType.BLUESKY,
-#             handle=BLUESKY_HANDLE,
-#             password=BLUESKY_PASSWORD
-#         )
-#     }
-
-#     for source in state.sources:
-#         try:
-#             fetcher = fetchers.get(source.type)
-#             if fetcher:
-#                 articles = fetcher.fetch_articles(source, max_days=MAX_DAYS)
-#                 all_articles.extend(articles)
-#                 logger.info(
-#                     f"{len(articles)} articles récents de {source.name or source.url}"
-#                 )
-#         except Exception as e:
-#             logger.error(f"Error fetching from {source.url}: {e}")
-
-#     return UnifiedState(
-#         sources=state.sources,
-#         keywords=state.keywords,
-#         articles=all_articles,
-#         filtered_articles=state.filtered_articles,
-#         summaries=state.summaries,
-#     )
