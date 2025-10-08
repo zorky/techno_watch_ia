@@ -52,10 +52,12 @@ def _fill_flexible_slots(remaining_articles, flexible_slots, processed_sources: 
     # Mélanger et trier par score pondéré
     weighted_articles = []
     for source, articles in remaining_articles.items():
-        for article in articles:
-            if source in processed_sources:
-                weighted_score = article.relevance_score * WEIGHTS[source]
-                weighted_articles.append((weighted_score, article))
+        if source in processed_sources:
+            for article in articles:   
+                    # logger.info(Fore.GREEN + f" {type(article)} {article.keys()}")         
+                    logger.info(Fore.GREEN + f"{article['score']}")
+                    weighted_score = float(article['score']) * WEIGHTS[source]
+                    weighted_articles.append((weighted_score, article))
     
     weighted_articles.sort(key=lambda x: x[0], reverse=True)
     return [article for _, article in weighted_articles[:flexible_slots]]
@@ -108,8 +110,8 @@ def select_articles_for_summary(articles_by_source: list[dict]) -> list[dict]:
         processed_sources.append(source)
     
     # ÉTAPE 4: Remplir les slots flexibles (Phase 2) : TOTO : à corriger selon si fetcher activé ou non
-    # if quotas['flexible'] > 0 and processed_sources:
-    #     flexible_articles = _fill_flexible_slots(remaining_articles, quotas['flexible'], processed_sources)
-    #     selected_articles.extend(flexible_articles)
+    if quotas['flexible'] > 0 and processed_sources:
+        flexible_articles = _fill_flexible_slots(remaining_articles, quotas['flexible'], processed_sources)
+        selected_articles.extend(flexible_articles)
     
     return selected_articles[:total_count]  # Sécurité: ne pas dépasser
