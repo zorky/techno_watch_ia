@@ -41,32 +41,32 @@ def _apply_freshness_adjustment(articles_by_source: list[dict], quotas: dict) ->
         
     return quotas
 
-def _fill_flexible_slots(remaining_articles, flexible_slots):
+def _fill_flexible_slots(remaining_articles, flexible_slots, processed_sources: list):
     """Répartir les slots flexibles avec pondération"""
     WEIGHTS = {
         'rss': 1.5,
         'reddit': 1.0,
         'bluesky': 1.2
     }
-    
+    logger.info(Fore.CYAN + f"{processed_sources}")
     # Mélanger et trier par score pondéré
     weighted_articles = []
     for source, articles in remaining_articles.items():
         for article in articles:
-            weighted_score = article.relevance_score * WEIGHTS[source]
-            weighted_articles.append((weighted_score, article))
+            if source in processed_sources:
+                weighted_score = article.relevance_score * WEIGHTS[source]
+                weighted_articles.append((weighted_score, article))
     
     weighted_articles.sort(key=lambda x: x[0], reverse=True)
     return [article for _, article in weighted_articles[:flexible_slots]]
 
-def select_articles_for_summary(articles_by_source: list[dict], max_days: int) -> list[dict]:
+def select_articles_for_summary(articles_by_source: list[dict]) -> list[dict]:
     """
     Fonction principale qui orchestre la sélection des articles
     
     Args:
         articles_by_source: ['title', 'summary', 'link', 'published', 'score', 'source']
-        (old : {'rss': [...], 'reddit': [...], 'bluesky': [...]})
-        max_days: Fenêtre temporelle (MAX_DAYS depuis .env)
+        (old : {'rss': [...], 'reddit': [...], 'bluesky': [...]})        
     
     Returns:
         Liste des articles sélectionnés et équilibrés
@@ -86,14 +86,16 @@ def select_articles_for_summary(articles_by_source: list[dict], max_days: int) -
     # ÉTAPE 3: Sélectionner les articles garantis par quota
     selected_articles = []
     remaining_articles = {}
-        
+
+    processed_sources = []       
     for source in SourceType:
         logger.info(Fore.RED + f"Traitement source {source.value} avec quota {quotas.get(f'{source.value}_min', 0)}")
         # articles = articles_by_source[source]
         articles = list(filter(lambda x: x['source'] == source, articles_by_source))
         logger.info(Fore.BLUE + f" - {len(articles)} articles disponibles pour la source {source.value}")
-        # if not articles:
-        #     continue    
+        if not articles:
+            continue    
+
         quota_key = f'{source.value}_min'
         quota = quotas.get(quota_key, 0)
         
@@ -102,11 +104,12 @@ def select_articles_for_summary(articles_by_source: list[dict], max_days: int) -
         selected_articles.extend(selected)
         
         # Garder le reste pour la phase flexible
-        remaining_articles[source] = articles[quota:]
+        remaining_articles[source] = articles[quota:]        
+        processed_sources.append(source)
     
-    # ÉTAPE 4: Remplir les slots flexibles (Phase 2)
-    if quotas['flexible'] > 0:
-        flexible_articles = _fill_flexible_slots(remaining_articles, quotas['flexible'])
-        selected_articles.extend(flexible_articles)
+    # ÉTAPE 4: Remplir les slots flexibles (Phase 2) : TOTO : à corriger selon si fetcher activé ou non
+    # if quotas['flexible'] > 0 and processed_sources:
+    #     flexible_articles = _fill_flexible_slots(remaining_articles, quotas['flexible'], processed_sources)
+    #     selected_articles.extend(flexible_articles)
     
     return selected_articles[:total_count]  # Sécurité: ne pas dépasser

@@ -111,6 +111,22 @@ OPML_FILE = get_environment_variable("OPML_FILE", "my.opml")
 # Fonctions utilitaires
 # =========================
 
+RSS_FETCH = True
+REDDIT_FETCH = True
+BLUESKY_FETCH = True
+
+def which_fetcher():
+    do_rss = get_environment_variable("RSS_FETCH", "1")
+    RSS_FETCH = do_rss.lower() in ('1', 'true', 'yes', 'on', 'oui')
+    logger.info(Fore.BLUE + f"RSS_FETCH : {RSS_FETCH}")
+    do_reddit = get_environment_variable("REDDIT_FETCH", "1")
+    REDDIT_FETCH = do_reddit.lower() in ('1', 'true', 'yes', 'on', 'oui')
+    logger.info(Fore.BLUE + f"REDDIT_FETCH : {REDDIT_FETCH}")
+    do_bluesky = get_environment_variable("BLUESKY_FETCH", "1")
+    BLUESKY_FETCH = do_bluesky.lower() in ('1', 'true', 'yes', 'on', 'oui')
+    logger.info(Fore.BLUE + f"BLUESKY_FETCH : {BLUESKY_FETCH}")
+    return RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH
+
 def preprocess_text(text):
     """For tests purposes - Prétraitement simple : tokenization, suppression des stopwords, lemmatisation."""
     from nltk.stem import WordNetLemmatizer
@@ -175,16 +191,27 @@ def create_legacy_wrapper(legacy_node_func):
 # =========================
 def make_graph():
     from nodes import dispatch_node, fetch_rss_node, fetch_reddit_node, fetch_bluesky_node, merge_fetched_articles
+    RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH = which_fetcher()
 
     graph = StateGraph(UnifiedState)
 
     # à splitter en des noeuds fetcher pour exécution //    
     graph.add_node("dispatch", RunnableLambda(dispatch_node))
 
+    logger.info(f"Fetchers on/off {RSS_FETCH} {REDDIT_FETCH} {BLUESKY_FETCH}")
+
     # noeuds fetchers
-    graph.add_node("fetch_rss", RunnableLambda(fetch_rss_node))
-    graph.add_node("fetch_reddit", RunnableLambda(fetch_reddit_node))
-    graph.add_node("fetch_bluesky", RunnableLambda(fetch_bluesky_node))
+    HAS_SOME = RSS_FETCH or REDDIT_FETCH or BLUESKY_FETCH     
+    if RSS_FETCH:
+        graph.add_node("fetch_rss", RunnableLambda(fetch_rss_node))
+    if REDDIT_FETCH:
+        graph.add_node("fetch_reddit", RunnableLambda(fetch_reddit_node))
+    if BLUESKY_FETCH:
+        graph.add_node("fetch_bluesky", RunnableLambda(fetch_bluesky_node))
+    # if not RSS_FETCH and not REDDIT_FETCH and not BLUESKY_FETCH:
+    if not HAS_SOME:
+        logger.info(Fore.RED + f"Aucune source activée, on arrête !")
+        exit
 
     # noeud de fusion des N fetchers précédents
     graph.add_node("merge_articles", RunnableLambda(merge_fetched_articles))
@@ -203,15 +230,17 @@ def make_graph():
     #
 
     # dispatch vers les fetchers
+    # des fetchers vers le noeud de fusion des articles
     graph.set_entry_point("dispatch")
-    graph.add_edge("dispatch", "fetch_rss")
-    graph.add_edge("dispatch", "fetch_reddit")
-    graph.add_edge("dispatch", "fetch_bluesky")
-    
-    # des fetchers vers le noeud de fusion des articles    
-    graph.add_edge("fetch_rss", "merge_articles")
-    graph.add_edge("fetch_reddit", "merge_articles")
-    graph.add_edge("fetch_bluesky", "merge_articles")
+    if RSS_FETCH:
+        graph.add_edge("dispatch", "fetch_rss")
+        graph.add_edge("fetch_rss", "merge_articles")
+    if REDDIT_FETCH:
+        graph.add_edge("dispatch", "fetch_reddit")
+        graph.add_edge("fetch_reddit", "merge_articles")
+    if BLUESKY_FETCH:
+        graph.add_edge("dispatch", "fetch_bluesky")
+        graph.add_edge("fetch_bluesky", "merge_articles")        
     
     # on fusionne le tout
     graph.add_edge("merge_articles", "filter")    
@@ -278,7 +307,7 @@ def main():
         + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE} sur les {MAX_DAYS} derniers jours"
     )
     logger.info(Fore.YELLOW + f"Initialisation DB")
-    init_db()
+    init_db()        
 
     initial_state = prepare_data()
 
