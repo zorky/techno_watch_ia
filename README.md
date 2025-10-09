@@ -67,7 +67,13 @@ Le modèle est chargé au moment du lancement du _container_.
 
 Le fichier `my.opml` est conseillé, par défaut il prendra une liste en dur de 3 flux RSS
 
-- Copier le .env.example sur .env puis le configurer 
+- Copier le .env.example sur .env puis le configurer : RSS, REDDIT, BLUESKY
+
+les 3 clés suivantes permettent de désactiver les fetchers selon le service
+
+RSS_FETCH=true
+REDDIT_FETCH=true
+BLUESKY_FETCH=true
 
 ```
 # Configuration LLM et limite inférence
@@ -98,13 +104,13 @@ SEND_EMAIL_TO=email_to@domain.ntld
 Se résume à un seul script à lancer
 
 ```bash
-$ python main_agent_rss.py
+$ python main_agent.py
 ```
 
 ou pour obtenir plus d'informations 
 
 ```bash
-$ python main_agent_rss.py --debug
+$ python main_agent.py --debug
 ```
 
 ## Interface UI pour les articles résumés
