@@ -4,7 +4,7 @@
 Agent RSS avec résumé automatique via LLM local.
 
 Ce script / cli exécute ces actions, dans l'ordre :
-- Lit une liste de flux RSS
+- Lit une liste de flux RSS / Reddit / Bluesky
 - Filtre les articles selon des mots-clés
 - Résume les articles avec un modèle LLM local (Ollama)
 - Affiche les résultats en console
@@ -13,7 +13,7 @@ Ce script / cli exécute ces actions, dans l'ordre :
 Framework : LangGraph pour le graphe des actions (noeuds)
 
 Usage :
-    python main_agent_rss.py [--debug]
+    python main_agent.py [--debug]
 
 Installation et Configuration :
 
@@ -24,36 +24,16 @@ Installation et Configuration :
    source .venv/bin/activate # ou source .venv/Scripts/activate sous Windows
    uv sync --dev
    ```
-   ou pip
-   ```
-   python3 -m venv .venv
-   source .venv/bin/activate # ou source .venv/Scripts/activate sous Windows
-   pip install -r requirements.txt
-   ```
-   paquets : langgraph, langchain, langchain_core, pydantic, feedparser
+  
+   paquets : langgraph, langchain, langchain_core, pydantic, feedparser, ...
 
- - un fichier .env est possible pour surcharger des variables, voir le .env.example :
-
-   LLM_MODEL (par défaut mistal),
-   LLM_TEMPERATURE (par défaut 0.3),
-   OLLAMA_BASE_URL (par défaut http://localhost:11434/v1)
-   LIMIT_ARTICLES_TO_RESUME (par défaut -1 : pas de limite) : pour l'inférence, combien d'articles le LLM doit résumer ?
-   RSS_URLS (par défaut la liste dans _get_rss_urls) : sur une seule ligne
-
-   Exemple :
-
- LLM_MODEL=mistral
- # LLM_MODEL=llama3:8b-instruct-q4_K_M
- LLM_TEMPERATURE=0.7
- RSS_URLS=["https://belowthemalt.com/feed/","https://cosmo-games.com/sujet/ia/feed/","https://www.ajeetraina.com/rss/","https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml"]
-
+ - un fichier .env est possible pour paramétrer des variables
 
  - Ollama doit être exécuté en local avec le modèle pullé, ou tout autre serveur LLM
 
 """
 
 import logging
-from datetime import datetime, timedelta
 from colorama import Fore, Style
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph
@@ -62,15 +42,11 @@ from langchain_core.runnables import RunnableLambda
 from langchain_openai import ChatOpenAI
 # from langchain_ollama import ChatOllama
 
-import feedparser
-
 from models.states import RSSState
 from read_opml import parse_opml_to_rss_list
 
-from bs4 import BeautifulSoup
-
 from core import argscli
-from services.models import Source, SourceType, UnifiedState
+from services.models import SourceType, UnifiedState
 
 from core import logger, get_environment_variable
 
@@ -192,26 +168,28 @@ def create_legacy_wrapper(legacy_node_func):
 def make_graph():
     from nodes import dispatch_node, fetch_rss_node, fetch_reddit_node, fetch_bluesky_node, merge_fetched_articles
     RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH = which_fetcher()
+    fetcher_flags = {
+        "RSS_FETCH": RSS_FETCH,
+        "REDDIT_FETCH": REDDIT_FETCH,
+        "BLUESKY_FETCH": BLUESKY_FETCH,
+    }
+    logger.info(f"Fetchers activés: RSS={RSS_FETCH}, Reddit={REDDIT_FETCH}, Bluesky={BLUESKY_FETCH}")    
 
     graph = StateGraph(UnifiedState)
 
     # à splitter en des noeuds fetcher pour exécution //    
     graph.add_node("dispatch", RunnableLambda(dispatch_node))
-
-    logger.info(f"Fetchers on/off {RSS_FETCH} {REDDIT_FETCH} {BLUESKY_FETCH}")
-
-    # noeuds fetchers
-    HAS_SOME = RSS_FETCH or REDDIT_FETCH or BLUESKY_FETCH     
+    
+    if not any(fetcher_flags.values()):
+        logger.info(Fore.RED + f"❌ Aucune source activée, on arrête !")
+        raise ValueError("Au moins un fetcher doit être activé avec l'une des 3 variables de .env : RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH")
+         
     if RSS_FETCH:
         graph.add_node("fetch_rss", RunnableLambda(fetch_rss_node))
     if REDDIT_FETCH:
         graph.add_node("fetch_reddit", RunnableLambda(fetch_reddit_node))
     if BLUESKY_FETCH:
-        graph.add_node("fetch_bluesky", RunnableLambda(fetch_bluesky_node))
-    # if not RSS_FETCH and not REDDIT_FETCH and not BLUESKY_FETCH:
-    if not HAS_SOME:
-        logger.info(Fore.RED + f"Aucune source activée, on arrête !")
-        exit
+        graph.add_node("fetch_bluesky", RunnableLambda(fetch_bluesky_node))        
 
     # noeud de fusion des N fetchers précédents
     graph.add_node("merge_articles", RunnableLambda(merge_fetched_articles))

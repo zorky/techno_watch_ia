@@ -3,6 +3,7 @@ from services.factory_fetcher import FetcherFactory
 from services.models import Source, SourceType, UnifiedState
 from core.logger import logger
 from colorama import Fore 
+import time
 from core.utils import get_environment_variable
 from .utils_fetch_nodes import fetch_articles, get_rss_urls, register_fetchers, get_bluesky_urls, get_subs_reddit_urls
 
@@ -13,12 +14,17 @@ MAX_DAYS = int(get_environment_variable("MAX_DAYS", "10"))
 
 def fetch_rss_node(state: UnifiedState) -> dict:   
     """fetch des flux RSS"""    
+    start = time.time()
+    logger.info(f"🔵 RSS fetch START at {start}")
+
     fetcher_rss = FetcherFactory.create_fetcher(SourceType.RSS)        
     sources_urls = get_rss_urls()
     all_articles = fetch_articles(fetcher_rss, sources_urls)    
     
-    logger.info(Fore.CYAN + f"fetch_rss_node : {len(all_articles)} articles RSS :")    
-    
+    logger.info(Fore.CYAN + f"fetch_rss_node : {len(all_articles)} articles RSS :")   
+
+    logger.info(f"🔵 RSS fetch END after {time.time() - start:.2f}s")
+
     return {"rss_articles": all_articles}
 
 def fetch_reddit_node(state: UnifiedState) -> dict:
@@ -32,11 +38,15 @@ def fetch_reddit_node(state: UnifiedState) -> dict:
             client_secret=REDDIT_CLIENT_SECRET,
             user_agent="TechnoWatch 1.0"
     )
+    start = time.time()
+    logger.info(f"🔵 REDDIT fetch START at {start}")
+
     sources_url = get_subs_reddit_urls()
     logger.info(Fore.LIGHTCYAN_EX + f"sources Reddit : {sources_url}")
     all_articles = fetch_articles(fetcher_reddit, sources_url)    
     
     logger.info(Fore.CYAN + f"fetch_reddit_node : {len(all_articles)} articles Reddit :")  
+    logger.info(f"🔵 RSS fetch END after {time.time() - start:.2f}s")
 
     # state.model_copy n'est pas possible sans quelques hack dans un graphe en //
     return {"reddit_articles": all_articles}
@@ -50,11 +60,16 @@ def fetch_bluesky_node(state: UnifiedState) -> dict:
             handle=BLUESKY_HANDLE,
             password=BLUESKY_PASSWORD
     )    
+    start = time.time()
+    logger.info(f"🔵 BLUESKY fetch START at {start}")
+
     sources_url = get_bluesky_urls()
     logger.info(Fore.LIGHTGREEN_EX + f"sources Reddit : {sources_url}")
     all_articles = fetch_articles(fetcher_bluesky, sources_url)    
     
     logger.info(Fore.CYAN + f"fetcher_bluesky_node : {len(all_articles)} articles Bluesky :")  
+    
+    logger.info(f"🔵 BLUESKY fetch END after {time.time() - start:.2f}s")
 
     # state.model_copy n'est pas possible sans quelques hack dans un graphe en //
     return {"bluesky_articles": all_articles}
