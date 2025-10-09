@@ -26,7 +26,9 @@ class RedditFetcher(BaseFetcher):
         cutoff_date = datetime.now() - timedelta(days=max_days)        
         subreddit = self.reddit.subreddit(source.subreddit)
         logger.info(Fore.BLUE + f"Fetch des posts du sub r/{source.subreddit} depuis la date : depuis {max_days} jours -> {cutoff_date}")        
-                
+        
+        source.sort_by = 'new' # for test purpose
+
         # Récupération selon le tri choisi
         if source.sort_by == "hot":
             posts = subreddit.hot(limit=self.max_fetch)
@@ -41,7 +43,7 @@ class RedditFetcher(BaseFetcher):
             post_date = datetime.fromtimestamp(post.created_utc)
             
             if post_date > cutoff_date:
-                logger.info(f"Post récent: {post.title} (publié le {post_date})")
+                logger.info(Fore.LIGHTYELLOW_EX + f"Post récent: {post.title} (publié le {post_date})")
                 # Contenu : titre + selftext + premiers commentaires top
                 content = post.title
                 if post.selftext:

@@ -78,12 +78,12 @@ class BlueskyFetcher(BaseFetcher):
         """
         articles = []
         cutoff_date = datetime.now() - timedelta(days=max_days)
-        
+        LIMIT = 10
         # Utilise l'endpoint public feed
         url = f"{self.base_url}/xrpc/app.bsky.feed.getTimeline"
         params = {
             "algorithm": "reverse-chronological",
-            "limit": 100
+            "limit": LIMIT
         }
         
         with session.get(url, headers=self.headers, params=params) as response:
@@ -118,7 +118,7 @@ class BlueskyFetcher(BaseFetcher):
         if user_identifier.startswith("@"):
             user_identifier = user_identifier[1:]
         
-        logger.info(f"posts user_identifier {user_identifier}")
+        logger.info(Fore.GREEN + f"posts user_identifier {user_identifier}")
 
         data = self.client.get_author_feed(actor=user_identifier, limit=10, filter='posts_no_replies')
 
