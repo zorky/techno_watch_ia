@@ -35,12 +35,12 @@ def register_fetchers_auto():
     
     logger.info(f"✓ Auto-découverte: {FetcherRegistry.list_all()}")
 
-def register_fetchers_manual():
-    """À appeler une fois au démarrage de l'app."""
-    FetcherRegistry.register(RSSFetcher)
-    # FetcherRegistry.register(RedditFetcher)
-    # FetcherRegistry.register(BlueskyFetcher)
-    logger.info(f"Fetchers enregistrés: {FetcherRegistry.list_all()}")
+# def register_fetchers_manual():
+#     """À appeler une fois au démarrage de l'app."""
+#     FetcherRegistry.register(RSSFetcher)
+#     # FetcherRegistry.register(RedditFetcher)
+#     # FetcherRegistry.register(BlueskyFetcher)
+#     logger.info(f"Fetchers enregistrés: {FetcherRegistry.list_all()}")
 
 
 # ============================================
