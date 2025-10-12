@@ -46,6 +46,7 @@ from models.states import RSSState
 from read_opml import parse_opml_to_rss_list
 
 from core import argscli
+from services.utils_fetchers import register_fetchers_auto
 from services.models import SourceType, UnifiedState
 
 from core import logger, get_environment_variable
@@ -175,6 +176,8 @@ def make_graph():
     }
     logger.info(f"Fetchers activés: RSS={RSS_FETCH}, Reddit={REDDIT_FETCH}, Bluesky={BLUESKY_FETCH}")    
 
+    register_fetchers_auto()
+    
     graph = StateGraph(UnifiedState)
 
     # à splitter en des noeuds fetcher pour exécution //    

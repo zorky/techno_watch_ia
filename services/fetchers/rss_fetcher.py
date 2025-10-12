@@ -9,7 +9,14 @@ from core import measure_time
 from services.fetchers.base_fetcher import BaseFetcher
 from services.models import Source, SourceType
 
+from services.utils_fetchers import fetcher_class
+
+@fetcher_class
 class RSSFetcher(BaseFetcher):
+    # source_type = "rss"
+    source_type = SourceType.RSS.value
+    env_flag = "RSS_FETCH"
+
     def get_summary(self, entry: dict):
         """
         Affiche le résumé ou le contenu d'une entrée de flux RSS ou Atom
