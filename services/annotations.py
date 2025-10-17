@@ -12,7 +12,6 @@ _PIPELINE_NODES = []
 # DÉCORATEUR DE CLASSE (Alternative)
 # ============================================
 
-# def fetcher_class(fetcher_cls: Type[BaseFetcher]) -> Type[BaseFetcher]:
 def fetcher_class(cls):
     """
     Décorateur optionnel pour enregistrer une classe fetcher.
