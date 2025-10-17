@@ -1,8 +1,8 @@
-from typing import Dict, Type, Optional
+from typing import Dict, Type
 import logging
 logging.basicConfig(level=logging.INFO)
 
-from core.logger import logger, Fore
+from core.logger import logger
 from services.models import SourceType
 from services.fetchers.base_fetcher import BaseFetcher
 

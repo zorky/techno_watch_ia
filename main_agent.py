@@ -39,17 +39,18 @@ from dotenv import load_dotenv
 from langgraph.graph import StateGraph
 from langchain_core.runnables import RunnableLambda
 
-from langchain_openai import ChatOpenAI
+# from langchain_openai import ChatOpenAI
 # from langchain_ollama import ChatOllama
 
 from models.states import RSSState
-from read_opml import parse_opml_to_rss_list
+# from read_opml import parse_opml_to_rss_list
 
 from core import argscli
 from services.utils_fetchers import register_fetchers_auto
 from services.models import SourceType, UnifiedState
 
-from core import logger, get_environment_variable
+from core import get_environment_variable
+from core.logger import logger
 
 from nodes import filter_node, summarize_node, \
                   output_node, save_articles_node, send_articles_node
@@ -176,8 +177,15 @@ def make_graph():
     }
     logger.info(f"Fetchers activés: RSS={RSS_FETCH}, Reddit={REDDIT_FETCH}, Bluesky={BLUESKY_FETCH}")    
 
+    # test pour enregistrement auto des fetchers pas annotations
+    print("=" * 60)
+    print("ÉTAPE 1 : Enregistrement des fetchers")
+    print("=" * 60)
     register_fetchers_auto()
     
+    print("=" * 60)
+    print("ÉTAPE 2 : Import des nodes")
+    print("=" * 60)
     graph = StateGraph(UnifiedState)
 
     # à splitter en des noeuds fetcher pour exécution //    
@@ -280,6 +288,7 @@ def prepare_data():
 # =========================
 def main():
     from db.db import init_db
+    # from core.logger import logger
 
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")
     logger.info(

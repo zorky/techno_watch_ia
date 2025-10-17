@@ -6,10 +6,9 @@ logging.basicConfig(level=logging.INFO)
 from core.logger import logger, Fore
 from core import measure_time
 
+from services.annotations import fetcher_class
 from services.fetchers.base_fetcher import BaseFetcher
 from services.models import Source, SourceType
-
-from services.utils_fetchers import fetcher_class
 
 @fetcher_class
 class RSSFetcher(BaseFetcher):
