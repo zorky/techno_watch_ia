@@ -176,15 +176,14 @@ def make_graph():
         "BLUESKY_FETCH": BLUESKY_FETCH,
     }
     logger.info(f"Fetchers activés: RSS={RSS_FETCH}, Reddit={REDDIT_FETCH}, Bluesky={BLUESKY_FETCH}")    
-
-    # test pour enregistrement auto des fetchers pas annotations
+    
     print("=" * 60)
     print("ÉTAPE 1 : Enregistrement des fetchers")
     print("=" * 60)
     register_fetchers_auto()
     
     print("=" * 60)
-    print("ÉTAPE 2 : Import des nodes")
+    print("ÉTAPE 2 : Enregistrement des nodes noeuds")
     print("=" * 60)
     graph = StateGraph(UnifiedState)
 
@@ -217,6 +216,9 @@ def make_graph():
     #
     # les transitions entre les noeuds
     #
+    print("=" * 60)
+    print("ÉTAPE 3 : Enregistrement des edges transitions")
+    print("=" * 60)
 
     # dispatch vers les fetchers
     # des fetchers vers le noeud de fusion des articles

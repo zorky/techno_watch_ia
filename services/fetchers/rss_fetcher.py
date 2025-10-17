@@ -11,8 +11,7 @@ from services.fetchers.base_fetcher import BaseFetcher
 from services.models import Source, SourceType
 
 @fetcher_class
-class RSSFetcher(BaseFetcher):
-    # source_type = "rss"
+class RSSFetcher(BaseFetcher):    
     source_type = SourceType.RSS.value
     env_flag = "RSS_FETCH"
 

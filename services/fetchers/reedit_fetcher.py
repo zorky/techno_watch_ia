@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import logging
 logging.basicConfig(level=logging.INFO)
 
+from services.annotations import fetcher_class
 from services.fetchers.base_fetcher import BaseFetcher
 from services.models import Source, SourceType
 
@@ -11,7 +12,11 @@ from core.logger import logger, Fore
 from core.utils import get_environment_variable
 from core import measure_time
 
+@fetcher_class
 class RedditFetcher(BaseFetcher):
+    source_type = SourceType.REDDIT.value
+    env_flag = "REDDIT_FETCH"
+
     def __init__(self, client_id: str, client_secret: str, user_agent: str):        
         self.reddit = praw.Reddit(
             client_id=client_id,

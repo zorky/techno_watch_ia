@@ -7,10 +7,15 @@ logging.basicConfig(level=logging.INFO)
 from core.logger import logger, Fore
 from core import measure_time
 
+from services.annotations import fetcher_class
 from services.fetchers.base_fetcher import BaseFetcher
 from services.models import Source, SourceType
 
+@fetcher_class
 class BlueskyFetcher(BaseFetcher):
+    source_type = SourceType.BLUESKY.value
+    env_flag = "BLUESKY_FETCH"
+
     def __init__(self, handle: str = None, password: str = None):
         """
         Bluesky Fetcher utilisant l'AT Protocol
