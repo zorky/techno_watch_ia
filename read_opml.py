@@ -3,7 +3,7 @@ import logging
 import xml.etree.ElementTree as ET
 
 logging.basicConfig(level=logging.INFO)
-from core import logger
+from core.logger import logger
 
 class RSSFeed(NamedTuple):
     titre: str

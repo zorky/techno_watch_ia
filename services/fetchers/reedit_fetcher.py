@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import logging
 logging.basicConfig(level=logging.INFO)
 
+from services.decorators import fetcher_class
 from services.fetchers.base_fetcher import BaseFetcher
 from services.models import Source, SourceType
 
@@ -11,7 +12,11 @@ from core.logger import logger, Fore
 from core.utils import get_environment_variable
 from core import measure_time
 
+@fetcher_class
 class RedditFetcher(BaseFetcher):
+    source_type = SourceType.REDDIT.value
+    env_flag = "REDDIT_FETCH"
+
     def __init__(self, client_id: str, client_secret: str, user_agent: str):        
         self.reddit = praw.Reddit(
             client_id=client_id,
@@ -22,11 +27,17 @@ class RedditFetcher(BaseFetcher):
     
     @measure_time
     def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
+        from core.logger import print_color
         articles = []
         cutoff_date = datetime.now() - timedelta(days=max_days)        
         subreddit = self.reddit.subreddit(source.subreddit)
         logger.info(Fore.BLUE + f"Fetch des posts du sub r/{source.subreddit} depuis la date : depuis {max_days} jours -> {cutoff_date}")        
-                
+        color = Fore.LIGHTCYAN_EX
+        print_color(color, "=" * 60)
+        print_color(color, f"REDDIT Fetcher fetch_articles {source.url}")
+        print_color(color, "=" * 60)
+        source.sort_by = 'new' # for test purpose
+
         # Récupération selon le tri choisi
         if source.sort_by == "hot":
             posts = subreddit.hot(limit=self.max_fetch)
@@ -41,7 +52,7 @@ class RedditFetcher(BaseFetcher):
             post_date = datetime.fromtimestamp(post.created_utc)
             
             if post_date > cutoff_date:
-                logger.info(f"Post récent: {post.title} (publié le {post_date})")
+                logger.info(Fore.LIGHTYELLOW_EX + f"Post récent: {post.title} (publié le {post_date})")
                 # Contenu : titre + selftext + premiers commentaires top
                 content = post.title
                 if post.selftext:

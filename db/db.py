@@ -287,7 +287,7 @@ def init_db():
     """Initialise la base de données SQLite."""
     Base.metadata.create_all(engine)
     ArticleFTS.init_table(engine)
-    print("Table 'articles' créée avec succès !")
+    print("Table 'articles' initialisée avec succès !")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

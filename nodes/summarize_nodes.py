@@ -4,10 +4,9 @@ from colorama import Fore
 
 from core.logger import logger
 from models.states import RSSState
+from services.models import SourceType, UnifiedState
 from core.utils import measure_time, get_environment_variable, argscli
 from services.model_service import set_prompt
-
-MAX_DAYS = int(get_environment_variable("MAX_DAYS", "10"))
 
 def _calculate_tokens(summary, elapsed):
     """Calcule le nombre approximatif de tokens dans un texte et le débit en tokens/s."""
@@ -60,7 +59,11 @@ def _summarize_article(title, content):
     return summary
 
 
-def summarize_node(state: RSSState) -> RSSState:
+def summarize_node(state: UnifiedState) -> UnifiedState:
+    """Résumé des articles par le LLM local"""
+
+    # dict Article : 'title', 'summary', 'link', 'published', 'score', 'source'   
+    #      
     from datetime import datetime, timezone
     from services.sources_ponderation import select_articles_for_summary
 
@@ -72,14 +75,14 @@ def summarize_node(state: RSSState) -> RSSState:
     else:
         logger.info("Pas de limite sur le nombre d'articles à résumer")
         articles = state.filtered_articles
-    # dict Article : 'title', 'summary', 'link', 'published', 'score', 'source'        
-    article = articles[0]
-    logger.info(f"** 1er article à résumer : {article.keys()} {article.values()}")
-    articles_to_summarise = select_articles_for_summary(articles, MAX_DAYS)
+    
+    logger.info(f"{len(articles)} à résumer :")
+    logger.info(f"{articles}")
+    articles_to_summarise = select_articles_for_summary(articles)
     logger.info(f"{len(articles_to_summarise)} articles sélectionnés pour résumé")
     summaries = []
     for i, article in enumerate(articles_to_summarise, start=1):        
-        logger.info(Fore.YELLOW + f"Résumé {i}/{len(articles)} : {article['title']}")
+        logger.info(Fore.YELLOW + f"Résumé {i}/{len(articles_to_summarise)} : {article['title']}")
         summary_text = _summarize_article(article["title"], article["summary"])
         summary = {
             "title": article["title"],

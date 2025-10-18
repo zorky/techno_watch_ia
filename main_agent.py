@@ -4,7 +4,7 @@
 Agent RSS avec résumé automatique via LLM local.
 
 Ce script / cli exécute ces actions, dans l'ordre :
-- Lit une liste de flux RSS
+- Lit une liste de flux RSS / Reddit / Bluesky
 - Filtre les articles selon des mots-clés
 - Résume les articles avec un modèle LLM local (Ollama)
 - Affiche les résultats en console
@@ -13,7 +13,7 @@ Ce script / cli exécute ces actions, dans l'ordre :
 Framework : LangGraph pour le graphe des actions (noeuds)
 
 Usage :
-    python main_agent_rss.py [--debug]
+    python main_agent.py [--debug]
 
 Installation et Configuration :
 
@@ -24,57 +24,35 @@ Installation et Configuration :
    source .venv/bin/activate # ou source .venv/Scripts/activate sous Windows
    uv sync --dev
    ```
-   ou pip
-   ```
-   python3 -m venv .venv
-   source .venv/bin/activate # ou source .venv/Scripts/activate sous Windows
-   pip install -r requirements.txt
-   ```
-   paquets : langgraph, langchain, langchain_core, pydantic, feedparser
+  
+   paquets : langgraph, langchain, langchain_core, pydantic, feedparser, ...
 
- - un fichier .env est possible pour surcharger des variables, voir le .env.example :
-
-   LLM_MODEL (par défaut mistal),
-   LLM_TEMPERATURE (par défaut 0.3),
-   OLLAMA_BASE_URL (par défaut http://localhost:11434/v1)
-   LIMIT_ARTICLES_TO_RESUME (par défaut -1 : pas de limite) : pour l'inférence, combien d'articles le LLM doit résumer ?
-   RSS_URLS (par défaut la liste dans _get_rss_urls) : sur une seule ligne
-
-   Exemple :
-
- LLM_MODEL=mistral
- # LLM_MODEL=llama3:8b-instruct-q4_K_M
- LLM_TEMPERATURE=0.7
- RSS_URLS=["https://belowthemalt.com/feed/","https://cosmo-games.com/sujet/ia/feed/","https://www.ajeetraina.com/rss/","https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml"]
-
+ - un fichier .env est possible pour paramétrer des variables
 
  - Ollama doit être exécuté en local avec le modèle pullé, ou tout autre serveur LLM
 
 """
 
 import logging
-from datetime import datetime, timedelta
 from colorama import Fore, Style
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph
 from langchain_core.runnables import RunnableLambda
 
-from langchain_openai import ChatOpenAI
+# from langchain_openai import ChatOpenAI
 # from langchain_ollama import ChatOllama
 
-import feedparser
-
 from models.states import RSSState
-from read_opml import parse_opml_to_rss_list
-
-from bs4 import BeautifulSoup
+# from read_opml import parse_opml_to_rss_list
 
 from core import argscli
-from services.models import Source, SourceType, UnifiedState
+from services.utils_fetchers import register_fetchers_auto
+from services.models import SourceType, UnifiedState
 
-from core import logger, get_environment_variable
+from core import get_environment_variable
+from core.logger import logger
 
-from nodes import unified_fetch_node, filter_node, summarize_node, \
+from nodes import filter_node, summarize_node, \
                   output_node, save_articles_node, send_articles_node
 
 # =========================
@@ -111,6 +89,22 @@ OPML_FILE = get_environment_variable("OPML_FILE", "my.opml")
 # Fonctions utilitaires
 # =========================
 
+RSS_FETCH = True
+REDDIT_FETCH = True
+BLUESKY_FETCH = True
+
+def which_fetcher():
+    do_rss = get_environment_variable("RSS_FETCH", "1")
+    RSS_FETCH = do_rss.lower() in ('1', 'true', 'yes', 'on', 'oui')
+    logger.info(Fore.BLUE + f"RSS_FETCH : {RSS_FETCH}")
+    do_reddit = get_environment_variable("REDDIT_FETCH", "1")
+    REDDIT_FETCH = do_reddit.lower() in ('1', 'true', 'yes', 'on', 'oui')
+    logger.info(Fore.BLUE + f"REDDIT_FETCH : {REDDIT_FETCH}")
+    do_bluesky = get_environment_variable("BLUESKY_FETCH", "1")
+    BLUESKY_FETCH = do_bluesky.lower() in ('1', 'true', 'yes', 'on', 'oui')
+    logger.info(Fore.BLUE + f"BLUESKY_FETCH : {BLUESKY_FETCH}")
+    return RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH
+
 def preprocess_text(text):
     """For tests purposes - Prétraitement simple : tokenization, suppression des stopwords, lemmatisation."""
     from nltk.stem import WordNetLemmatizer
@@ -135,73 +129,6 @@ def preprocess_text(text):
     lemmatizer = WordNetLemmatizer()
     tokens = [lemmatizer.lemmatize(t) for t in tokens]
     return " ".join(tokens)
-
-def strip_html(text: str) -> str:
-    """Supprime les balises HTML d'un texte pour n'avoir que du texte brut."""
-    return BeautifulSoup(text, "html.parser").get_text()
-
-
-def get_summary(entry: dict):
-    """
-    Affiche le résumé ou le contenu d'une entrée de flux RSS ou Atom
-       RSS 2.0: 'summary'
-       Atom: 'content'
-
-    Args:
-        entry: Une entrée de flux RSS/Atom.
-    """
-    if "content" in entry.keys():
-        content: list[feedparser.FeedParserDict] = entry.get("content", [dict])
-        return content[0].get("value", "Pas de résumé")
-
-    return entry.get("summary", "Pas de résumé")
-
-
-def add_article_with_entry_syndication(entry, articles, cutoff_date, recent_in_feed):
-    """
-    A partir du contenu d'une entrée entry, ajoute un article récent à la liste des articles à traiter.
-
-    Args:
-        entry: Un article du flux RSS/Atom.
-        articles: La liste des articles à traiter.
-        cutoff_date: La date limite pour qu'un article soit considéré comme récent.
-        recent_in_feed: Le compteur d'articles récents dans le flux actuel.
-    """
-    # Récupération de la date de publication (priorité à published, sinon updated)
-    published_time = None
-    if hasattr(entry, "published_parsed"):
-        published_time = datetime(*entry.published_parsed[:6])
-    elif hasattr(entry, "updated_parsed"):
-        published_time = datetime(*entry.updated_parsed[:6])
-
-    # Vérification de la date
-    is_recent = published_time and (published_time >= cutoff_date)
-    logger.debug(
-        f"Article: {getattr(entry, 'title', 'Sans titre')} "
-        f"(publié le {published_time}) : {'récent' if is_recent else 'trop ancien' if published_time else 'date inconnue'}"
-    )
-
-    if is_recent:
-        # Normalisation des champs (RSS/Atom)
-        title = getattr(entry, "title", "Sans titre")
-        summary = get_summary(entry)
-        summary = strip_html(summary)  # Nettoyage du HTML
-        logger.debug(f"Résumé brut (après nettoyage) : {summary}")
-        link = getattr(entry, "link", "#")
-        if isinstance(link, list):  # Cas Atom où link est un objet
-            link = link[0].href if link else "#"
-        logger.info(Fore.GREEN + f"🆕 Article récent : {title} ({link})")
-        articles.append(
-            {
-                "title": title,
-                "summary": summary,
-                "link": link,
-                "published": published_time.isoformat() if published_time else None,
-                "score": "0 %",
-            }
-        )
-        recent_in_feed += 1
-    return recent_in_feed
 
 # =========================
 # Nœuds du graphe
@@ -241,13 +168,46 @@ def create_legacy_wrapper(legacy_node_func):
 # fetch -> filter -> summarize -> output
 # =========================
 def make_graph():
-    # graph = StateGraph(RSSState)
-    # graph.add_node("fetch", RunnableLambda(fetch_node))
-
+    from nodes import dispatch_node, fetch_rss_node, fetch_reddit_node, fetch_bluesky_node, merge_fetched_articles
+    from core.logger import print_color
+    RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH = which_fetcher()
+    fetcher_flags = {
+        "RSS_FETCH": RSS_FETCH,
+        "REDDIT_FETCH": REDDIT_FETCH,
+        "BLUESKY_FETCH": BLUESKY_FETCH,
+    }
+    logger.info(f"Fetchers activés: RSS={RSS_FETCH}, Reddit={REDDIT_FETCH}, Bluesky={BLUESKY_FETCH}")    
+    
+    color = Fore.BLUE
+    print_color(color, "=" * 60)
+    print_color(color, "ÉTAPE 1 : Enregistrement des fetchers")
+    print_color(color, "=" * 60)
+    register_fetchers_auto()
+    
+    print_color(color, "=" * 60)
+    print_color(color, "ÉTAPE 2 : Enregistrement des nodes noeuds")
+    print_color(color, "=" * 60)
     graph = StateGraph(UnifiedState)
-    graph.add_node("fetch", RunnableLambda(unified_fetch_node))
-    graph.add_node("filter", RunnableLambda(create_legacy_wrapper(filter_node)))
-    graph.add_node("summarize", RunnableLambda(create_legacy_wrapper(summarize_node)))
+
+    # à splitter en des noeuds fetcher pour exécution //    
+    graph.add_node("dispatch", RunnableLambda(dispatch_node))
+    
+    if not any(fetcher_flags.values()):
+        logger.info(Fore.RED + f"❌ Aucune source activée, on arrête !")
+        raise ValueError("Au moins un fetcher doit être activé avec l'une des 3 variables de .env : RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH")
+         
+    if RSS_FETCH:
+        graph.add_node("fetch_rss", RunnableLambda(fetch_rss_node))
+    if REDDIT_FETCH:
+        graph.add_node("fetch_reddit", RunnableLambda(fetch_reddit_node))
+    if BLUESKY_FETCH:
+        graph.add_node("fetch_bluesky", RunnableLambda(fetch_bluesky_node))        
+
+    # noeud de fusion des N fetchers précédents
+    graph.add_node("merge_articles", RunnableLambda(merge_fetched_articles))
+
+    graph.add_node("filter", RunnableLambda(filter_node))
+    graph.add_node("summarize", RunnableLambda(summarize_node))
     graph.add_node("displayoutput", RunnableLambda(create_legacy_wrapper(output_node)))
     graph.add_node(
         "savedbsummaries", RunnableLambda(create_legacy_wrapper(save_articles_node))
@@ -255,9 +215,29 @@ def make_graph():
     graph.add_node(
         "sendsummaries", RunnableLambda(create_legacy_wrapper(send_articles_node))
     )
+    #
+    # les transitions entre les noeuds
+    #
+    print_color(color, "=" * 60)
+    print_color(color, "ÉTAPE 3 : Enregistrement des edges transitions")
+    print_color(color, "=" * 60)
 
-    graph.set_entry_point("fetch")
-    graph.add_edge("fetch", "filter")
+    # dispatch vers les fetchers
+    # des fetchers vers le noeud de fusion des articles
+    graph.set_entry_point("dispatch")
+    if RSS_FETCH:
+        graph.add_edge("dispatch", "fetch_rss")
+        graph.add_edge("fetch_rss", "merge_articles")
+    if REDDIT_FETCH:
+        graph.add_edge("dispatch", "fetch_reddit")
+        graph.add_edge("fetch_reddit", "merge_articles")
+    if BLUESKY_FETCH:
+        graph.add_edge("dispatch", "fetch_bluesky")
+        graph.add_edge("fetch_bluesky", "merge_articles")        
+    
+    # on fusionne le tout
+    graph.add_edge("merge_articles", "filter")    
+    
     graph.add_edge("filter", "summarize")
     graph.add_edge("summarize", "displayoutput")
     graph.add_edge("displayoutput", "savedbsummaries")
@@ -265,89 +245,6 @@ def make_graph():
 
     return graph.compile()
 
-def get_rss_urls():
-    """
-    Obtient la liste des URL RSS à traiter à partir des variables d'environnement.
-    Le .env ne contient que des types string et au format JSON
-    """
-    logger.info("Obtention des URL RSS à traiter...")
-    rss_list_opml = parse_opml_to_rss_list(OPML_FILE)
-
-    return [
-        Source(
-            type=SourceType.RSS, name=feed.titre, url=feed.lien_rss, link=feed.lien_web
-        )
-        for feed in rss_list_opml
-        if (
-            logger.debug(f"Flux RSS : {feed.titre} - {feed.lien_rss} - {feed.lien_web}")
-            or True
-        )
-    ]
-
-def load_sources_from_config(config_path: str, type_source: SourceType) -> list[Source]:
-    """
-    Support pour un fichier JSON qui peut inclure Reddit et Bluesky
-    Exemple de structure :
-    {
-        "sources": [            
-            {
-                "type": "reddit",
-                "subreddit": "MachineLearning",
-                "name": "ML Reddit",
-                "sort_by": "hot",
-                "time_filter": "day"
-            },
-            {
-                "type": "bluesky",
-                "url": "@user.bsky.social",
-                "name": "Tech Expert"
-            },
-            {
-                "type": "bluesky",
-                "url": "firehose",
-                "name": "Bluesky Public Feed"
-            }
-        ]
-    }
-    """
-    import json
-    
-    with open(config_path, 'r') as f:
-        config = json.load(f)
-    
-    sources = []
-    for source_config in config.get('sources', []):
-        if source_config['type'] == type_source.REDDIT:
-            sources.append(Source(
-                type=SourceType.REDDIT,
-                url=f"reddit.com/r/{source_config['subreddit']}",
-                name=source_config.get('name'),
-                subreddit=source_config['subreddit'],
-                sort_by=source_config.get('sort_by', 'hot'),
-                time_filter=source_config.get('time_filter', 'day')
-            ))
-        elif source_config['type'] == type_source.BLUESKY:
-            sources.append(Source(
-                type=SourceType.BLUESKY,
-                url=source_config['url'],
-                name=source_config.get('name')
-            ))
-        # else:  # RSS
-        #     sources.append(Source(
-        #         type=SourceType.RSS,
-        #         url=source_config['url'],
-        #         name=source_config.get('name')
-        #     ))
-    
-    return sources
-
-def get_subs_reddit_urls():
-    """
-    Obtient la liste des URL Reddit à traiter à partir du fichier myreddit.json
-    """    
-    MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")    
-    return load_sources_from_config(MY_REDDIT_FILE, SourceType.REDDIT)
-    
 def _show_graph(graph):
     """Affichage du graphe / automate LangGraph qui est utilisé"""
 
@@ -381,14 +278,9 @@ def _show_graph(graph):
     except Exception as e:
         logger.error(f"{e}")
 
-def prepare_data():
-    sources_urls = get_rss_urls()
-    reddit_subs= get_subs_reddit_urls()
-    sources_urls.extend(reddit_subs)
-
-    logger.info(f"{len(sources_urls)} flux RSS à traiter")
-    initial_state = UnifiedState(
-        sources=sources_urls,
+def prepare_data():    
+    initial_state = UnifiedState(        
+        sources=[],
         keywords=FILTER_KEYWORDS
         if FILTER_KEYWORDS != [""]
         else ["intelligence artificielle", "IA", "cybersécurité", "alerte sécurité"],
@@ -400,6 +292,7 @@ def prepare_data():
 # =========================
 def main():
     from db.db import init_db
+    # from core.logger import logger
 
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")
     logger.info(
@@ -408,7 +301,7 @@ def main():
         + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE} sur les {MAX_DAYS} derniers jours"
     )
     logger.info(Fore.YELLOW + f"Initialisation DB")
-    init_db()
+    init_db()        
 
     initial_state = prepare_data()
 
