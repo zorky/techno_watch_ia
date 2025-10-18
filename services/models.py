@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Annotated, TypedDict
+from typing import Optional, Annotated
 from operator import add
 from enum import Enum
 
