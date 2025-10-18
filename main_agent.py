@@ -169,6 +169,7 @@ def create_legacy_wrapper(legacy_node_func):
 # =========================
 def make_graph():
     from nodes import dispatch_node, fetch_rss_node, fetch_reddit_node, fetch_bluesky_node, merge_fetched_articles
+    from core.logger import print_color
     RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH = which_fetcher()
     fetcher_flags = {
         "RSS_FETCH": RSS_FETCH,
@@ -177,14 +178,15 @@ def make_graph():
     }
     logger.info(f"Fetchers activés: RSS={RSS_FETCH}, Reddit={REDDIT_FETCH}, Bluesky={BLUESKY_FETCH}")    
     
-    print("=" * 60)
-    print("ÉTAPE 1 : Enregistrement des fetchers")
-    print("=" * 60)
+    color = Fore.BLUE
+    print_color(color, "=" * 60)
+    print_color(color, "ÉTAPE 1 : Enregistrement des fetchers")
+    print_color(color, "=" * 60)
     register_fetchers_auto()
     
-    print("=" * 60)
-    print("ÉTAPE 2 : Enregistrement des nodes noeuds")
-    print("=" * 60)
+    print_color(color, "=" * 60)
+    print_color(color, "ÉTAPE 2 : Enregistrement des nodes noeuds")
+    print_color(color, "=" * 60)
     graph = StateGraph(UnifiedState)
 
     # à splitter en des noeuds fetcher pour exécution //    
@@ -216,9 +218,9 @@ def make_graph():
     #
     # les transitions entre les noeuds
     #
-    print("=" * 60)
-    print("ÉTAPE 3 : Enregistrement des edges transitions")
-    print("=" * 60)
+    print_color(color, "=" * 60)
+    print_color(color, "ÉTAPE 3 : Enregistrement des edges transitions")
+    print_color(color, "=" * 60)
 
     # dispatch vers les fetchers
     # des fetchers vers le noeud de fusion des articles

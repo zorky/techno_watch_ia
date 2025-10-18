@@ -1,5 +1,6 @@
 import aiohttp
 from datetime import datetime, timedelta
+from pydantic import BaseModel
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -11,6 +12,20 @@ from services.annotations import fetcher_class
 from services.fetchers.base_fetcher import BaseFetcher
 from services.models import Source, SourceType
 
+# class ArticleBluesky(BaseModel):
+#     title: str
+#     summary: str
+#     link: str
+#     published: datetime
+#     source_type: str
+#     source: SourceType
+#     source_name: str
+#     author: str
+#     likes: int
+#     reposts: int
+#     replies: int
+#     score: str
+    
 @fetcher_class
 class BlueskyFetcher(BaseFetcher):
     source_type = SourceType.BLUESKY.value
@@ -48,12 +63,15 @@ class BlueskyFetcher(BaseFetcher):
         - Un handle utilisateur : "@user.bsky.social" 
         - Un DID : "did:plc:..."
         - "firehose" pour le feed public général
-        """
-        import aiohttp
-        from urllib.parse import quote
+        """        
+        from core.logger import print_color
+
+        color = Fore.LIGHTMAGENTA_EX
+        print_color(color, "=" * 60)
+        print_color(color, f"BLUESKY Fetcher fetch_articles {source.url}")
+        print_color(color, "=" * 60)
         
         articles = []        
-        logger.info(f'fetch source {source}')
 
         try:
             if source.url == "firehose" or source.url.startswith("firehose"):
@@ -123,30 +141,30 @@ class BlueskyFetcher(BaseFetcher):
         if user_identifier.startswith("@"):
             user_identifier = user_identifier[1:]
         
-        logger.info(Fore.GREEN + f"posts user_identifier {user_identifier}")
+        # logger.info(Fore.GREEN + f"posts user_identifier {user_identifier}")
 
         data = self.client.get_author_feed(actor=user_identifier, limit=10, filter='posts_no_replies')
 
         feed_items: list = data.feed 
         logger.info(Fore.CYAN + f"posts de {user_identifier}")        
-        logger.info(Fore.CYAN + f"{len(feed_items)}")
+        logger.debug(Fore.CYAN + f"{len(feed_items)}")
         for feed in feed_items:
             post = feed.post
             record = post.record
             created_at = record.created_at
-            logger.info(Fore.LIGHTMAGENTA_EX + f"\tpost : {post.author} {created_at}\n")
+            logger.debug(Fore.LIGHTMAGENTA_EX + f"\tpost : {post.author} {created_at}\n")
             
             if created_at:
                 post_date = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
                 if post_date.replace(tzinfo=None) > cutoff_date:
-                    logger.info(Fore.LIGHTBLUE_EX + f"\t {type(record)} record : {record}\n")
-                    logger.info(Fore.LIGHTBLUE_EX + f"\t record : {record.text} le {created_at}\n")
-                    logger.info(Fore.LIGHTGREEN_EX + f"\tembed : {record.embed}\n")
+                    logger.debug(Fore.LIGHTBLUE_EX + f"\t {type(record)} record : {record}\n")
+                    logger.debug(Fore.LIGHTBLUE_EX + f"\t record : {record.text} le {created_at}\n")
+                    logger.debug(Fore.LIGHTGREEN_EX + f"\tembed : {record.embed}\n")
                     formatted_post = self._format_bluesky_post(post, feed)                    
                     articles.append(formatted_post)
         
-        for article in articles:
-            logger.info(Fore.LIGHTGREEN_EX + f"ARTICLE : {article}")
+        # for article in articles:
+        #     logger.info(Fore.LIGHTGREEN_EX + f"ARTICLE : {article}")
 
         return articles
     
@@ -205,14 +223,27 @@ class BlueskyFetcher(BaseFetcher):
                 }
         """
         # format created_at : 2025-09-23T15:31:04.446738146Z
-        logger.info(Fore.RED + f"record created_at {record.created_at}")
+        logger.debug(Fore.RED + f"record created_at {record.created_at}")
                 
         published_parsed = datetime.fromisoformat(record.created_at.replace('Z', '+00:00')).timetuple()     
-        logger.info(Fore.RED + f"{published_parsed}")           
+        logger.debug(Fore.RED + f"{published_parsed}")           
         published = datetime(*published_parsed[:6])
           
-        logger.info(Fore.LIGHTYELLOW_EX + f"{record.created_at} -> {published} - {published.isoformat()}")     
-
+        logger.debug(Fore.LIGHTYELLOW_EX + f"{record.created_at} -> {published} - {published.isoformat()}")     
+        # article = ArticleBluesky(
+        #     title=text[:100] + "..." if len(text) > 100 else text,
+        #     summary=text,
+        #     link=at_url,
+        #     published=published.isoformat(),
+        #     source=SourceType.BLUESKY,
+        #     source_type="bluesky",
+        #     source_name=f"@{author.handle or 'unknown'}",
+        #     author=author.display_name or (author.handle or "Unknown"),
+        #     likes=post.like_count or 0,
+        #     reposts=post.repost_count or 0,
+        #     replies=post.reply_count or 0,
+        #     score="0 %",
+        #     )        
         return {
             'title': text[:100] + "..." if len(text) > 100 else text,  # Titre = début du texte            
             'summary': text,

@@ -87,13 +87,17 @@ class RSSFetcher(BaseFetcher):
     @measure_time
     def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
         """Votre logique RSS existante"""
+        from core.logger import print_color
         AGENT = "ReaderRSS/1.0"
         RESOLVE_RELATIVE_URIS = False
         SANITIZE_HTML = True
         articles = []
         cutoff_date = datetime.now() - timedelta(days=max_days)
         logger.info(Fore.BLUE + f"Fetch posts RSS du flux {source.url} depuis la date : depuis {max_days} jours -> {cutoff_date}")
-        
+        color = Fore.LIGHTBLUE_EX
+        print_color(color, "=" * 60)
+        print_color(color, f"RSS Fetcher fetch_articles {source.url}")
+        print_color(color, "=" * 60)
         feed = feedparser.parse(
             source.url,
             resolve_relative_uris=RESOLVE_RELATIVE_URIS,

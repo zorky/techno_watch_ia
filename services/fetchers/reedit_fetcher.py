@@ -27,11 +27,15 @@ class RedditFetcher(BaseFetcher):
     
     @measure_time
     def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
+        from core.logger import print_color
         articles = []
         cutoff_date = datetime.now() - timedelta(days=max_days)        
         subreddit = self.reddit.subreddit(source.subreddit)
         logger.info(Fore.BLUE + f"Fetch des posts du sub r/{source.subreddit} depuis la date : depuis {max_days} jours -> {cutoff_date}")        
-        
+        color = Fore.LIGHTCYAN_EX
+        print_color(color, "=" * 60)
+        print_color(color, f"REDDIT Fetcher fetch_articles {source.url}")
+        print_color(color, "=" * 60)
         source.sort_by = 'new' # for test purpose
 
         # Récupération selon le tri choisi

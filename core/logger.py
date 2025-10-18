@@ -40,3 +40,6 @@ logger = logging.getLogger(__name__)
 #     ...
 logger.addHandler(handler)
 logger.propagate = False
+
+def print_color(color, text):
+    print(color + text)
