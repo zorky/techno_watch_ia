@@ -23,7 +23,7 @@ def fetch_rss_node(state: UnifiedState) -> dict:
     
     logger.info(Fore.CYAN + f"fetch_rss_node : {len(all_articles)} articles RSS :")   
 
-    logger.info(f"🔵 RSS fetch END after {time.time() - start:.2f}s")
+    logger.info(Fore.WHITE + f"🔵 RSS fetch END after {time.time() - start:.2f}s")
 
     return {"rss_articles": all_articles}
 
@@ -46,7 +46,7 @@ def fetch_reddit_node(state: UnifiedState) -> dict:
     all_articles = fetch_articles(fetcher_reddit, sources_url)    
     
     logger.info(Fore.CYAN + f"fetch_reddit_node : {len(all_articles)} articles Reddit :")  
-    logger.info(f"🔵 RSS fetch END after {time.time() - start:.2f}s")
+    logger.info(Fore.WHITE + f"🔵 REDDIT fetch END after {time.time() - start:.2f}s")
 
     # state.model_copy n'est pas possible sans quelques hack dans un graphe en //
     return {"reddit_articles": all_articles}
@@ -69,7 +69,7 @@ def fetch_bluesky_node(state: UnifiedState) -> dict:
     
     logger.info(Fore.CYAN + f"fetcher_bluesky_node : {len(all_articles)} articles Bluesky :")  
     
-    logger.info(f"🔵 BLUESKY fetch END after {time.time() - start:.2f}s")
+    logger.info(Fore.WHITE + f"🔵 BLUESKY fetch END after {time.time() - start:.2f}s")
 
     # state.model_copy n'est pas possible sans quelques hack dans un graphe en //
     return {"bluesky_articles": all_articles}
@@ -82,6 +82,9 @@ def dispatch_node(state: UnifiedState) -> UnifiedState:
 def merge_fetched_articles(state: UnifiedState) -> dict:
     """Noeud de fusion des données ramenés par les fetchers"""
     """Fusionne tous les articles des différentes sources"""    
+    from collections import Counter
+    from core.logger import print_color
+
     all_articles = []
     
     # Récupère de chaque source
@@ -95,6 +98,12 @@ def merge_fetched_articles(state: UnifiedState) -> dict:
         logger.info(f"Clés d'un article Reddit : {list(state.reddit_articles[0].keys())}")
     if state.bluesky_articles:
         logger.info(f"Clés d'un article Bluesky : {list(state.bluesky_articles[0].keys())}")
+    
+    source_counts = Counter(item['source'].value for item in all_articles)
+    color = Fore.LIGHTWHITE_EX
+    print_color(color, "=" * 60)
+    print_color(color, f"merge_fetched_articles {source_counts}")
+    print_color(color, "=" * 60)
 
     # Déduplique si nécessaire
     # seen_urls = set()

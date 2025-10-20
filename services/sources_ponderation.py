@@ -62,6 +62,15 @@ def _fill_flexible_slots(remaining_articles, flexible_slots, processed_sources: 
     weighted_articles.sort(key=lambda x: x[0], reverse=True)
     return [article for _, article in weighted_articles[:flexible_slots]]
 
+def _count_by_type_articles(title, articles):
+    from collections import Counter
+    from core.logger import print_color
+    source_counts = Counter(item['source'].value for item in articles)
+    color = Fore.LIGHTYELLOW_EX
+    print_color(color, "=" * 60)
+    print_color(color, f"{title} {source_counts}")
+    print_color(color, "=" * 60)
+
 def select_articles_for_summary(articles_by_source: list[dict]) -> list[dict]:
     """
     Fonction principale qui orchestre la sélection des articles
@@ -73,10 +82,18 @@ def select_articles_for_summary(articles_by_source: list[dict]) -> list[dict]:
     Returns:
         Liste des articles sélectionnés et équilibrés
     """
-    total_count = int(get_environment_variable('LIMIT_ARTICLES_TO_RESUME', 15))
+    from core.logger import print_color
+    
+    color = Fore.LIGHTYELLOW_EX
+    print_color(color, "=" * 60)
+    print_color(color, f"Sélection des articles pour résumé sur {len(articles_by_source)}")
+    print_color(color, "=" * 60)
+    _count_by_type_articles("Nombre d'articles sources", articles_by_source)
+
+    limit_articles_to_resume = int(get_environment_variable('LIMIT_ARTICLES_TO_RESUME', 15))
     
     # ÉTAPE 1: Calculer les quotas de base (Phase 1)
-    quotas = _calculate_quotas(total_count)
+    quotas = _calculate_quotas(limit_articles_to_resume)
     # Résultat: {'rss_min': 6, 'reddit_min': 3, 'bluesky_min': 2, 'flexible': 4}
     logger.info(Fore.CYAN + f"Quotas initiaux: {quotas}")
 
@@ -112,6 +129,13 @@ def select_articles_for_summary(articles_by_source: list[dict]) -> list[dict]:
     # ÉTAPE 4: Remplir les slots flexibles (Phase 2) : TOTO : à corriger selon si fetcher activé ou non
     if quotas['flexible'] > 0 and processed_sources:
         flexible_articles = _fill_flexible_slots(remaining_articles, quotas['flexible'], processed_sources)
-        selected_articles.extend(flexible_articles)
-    
-    return selected_articles[:total_count]  # Sécurité: ne pas dépasser
+        selected_articles.extend(flexible_articles)        
+
+    logger.info(Fore.RED + f'selected_articles {len(selected_articles)}')
+    _count_by_type_articles("Nombre d'articles sélectionnés", selected_articles)
+
+    limit_selected = selected_articles[:limit_articles_to_resume]
+    logger.info(Fore.RED + f'limit_selected {len(limit_selected)}')
+    _count_by_type_articles(f"Nombre d'articles sélectionnés limite à {limit_articles_to_resume}", limit_selected)
+
+    return limit_selected

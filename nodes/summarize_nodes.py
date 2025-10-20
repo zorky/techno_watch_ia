@@ -77,7 +77,7 @@ def summarize_node(state: UnifiedState) -> UnifiedState:
         articles = state.filtered_articles
     
     logger.info(f"{len(articles)} à résumer :")
-    logger.info(f"{articles}")
+    # logger.info(f"{articles}")
     articles_to_summarise = select_articles_for_summary(articles)
     logger.info(f"{len(articles_to_summarise)} articles sélectionnés pour résumé")
     summaries = []
