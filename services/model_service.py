@@ -26,6 +26,10 @@ MAX_TOKENS_GENERATE = int(get_environment_variable("MAX_TOKENS_GENERATE", "300")
 # Configuration LLM local / saas
 # =========================
 def init_llm_chat():
+    logger.info(
+        Fore.GREEN
+        + f"Init LLM Chat Model {LLM_MODEL} via API {LLM_API} (temp={LLM_TEMPERATURE}, top_p={TOP_P})"
+    )
     return ChatOpenAI(
         model=LLM_MODEL,
         openai_api_base=LLM_API,

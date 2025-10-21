@@ -3,9 +3,8 @@ logging.basicConfig(level=logging.INFO)
 from colorama import Fore
 
 from core.logger import logger
-from models.states import RSSState
-from services.models import SourceType, UnifiedState
-from core.utils import measure_time, get_environment_variable, argscli
+from services.models import UnifiedState
+from core.utils import measure_time, get_environment_variable #, argscli
 from services.model_service import set_prompt
 
 def _calculate_tokens(summary, elapsed):
@@ -20,12 +19,13 @@ def _calculate_tokens(summary, elapsed):
 
 @measure_time
 def _summarize_article(title, content):    
-    from services.model_service import init_llm_chat
     import time
+    from services.model_service import init_llm_chat
+    from core.utils import configure_logging_from_args
 
     prompt = set_prompt("IA, ingénieurie logicielle et cybersécurité", title, content)
-
-    if argscli.debug:
+    _, args = configure_logging_from_args()
+    if args.debug:
         logger.debug(
             Fore.MAGENTA
             + "--- PROMPT ENVOYÉ AU LLM ---\n"
@@ -39,12 +39,12 @@ def _summarize_article(title, content):
     result = llm.invoke(prompt)
     summary = result.content.strip().strip('"').strip()
 
-    if argscli.debug:
+    if args.debug:
         end = time.time()
         elapsed = end - start
         _calculate_tokens(summary, elapsed)
 
-    if argscli.debug:
+    if args.debug:
         logger.debug(
             Fore.MAGENTA
             + "--- RÉPONSE BRUTE DU LLM ---\n"
@@ -100,5 +100,5 @@ def summarize_node(state: UnifiedState) -> UnifiedState:
         summaries = summaries[:LIMIT_ARTICLES_TO_RESUME]
 
     count_by_type_articles("Nombre de résumés par source", summaries)
-    
+
     return state.model_copy(update={"summaries": summaries})
