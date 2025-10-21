@@ -1,8 +1,12 @@
 import pytest
 import sys
-from services.models import SourceType
+from services.models import SourceType, UnifiedState
 
-@pytest.fixture(autouse=True, scope="session")
+# @pytest.fixture
+# def base_state():
+#     return UnifiedState(keywords=[])
+
+@pytest.fixture(autouse=True, scope="function")
 def mock_articles(monkeypatch):
     monkeypatch.setattr(sys, 'argv', ['pytest'])
     return [
@@ -14,7 +18,7 @@ def mock_articles(monkeypatch):
         {"title": "Article Reddit 2", "source": SourceType.REDDIT, "score": 0.4, "published": "2025-10-19"},
     ]
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(autouse=True, scope="function")
 def mock_env_vars(monkeypatch):
     monkeypatch.setattr(sys, 'argv', ['pytest'])
     monkeypatch.setenv("RSS_WEIGHT", "50")

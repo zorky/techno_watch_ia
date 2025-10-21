@@ -38,7 +38,8 @@ def test_select_articles_for_summary_limit(mock_articles, mock_env_vars):
     assert len(selected) <= 5
 
 def test_summarize_node_limit(mock_articles, mock_env_vars):
-    state = UnifiedState(filtered_articles=mock_articles)
+    # state = UnifiedState(filtered_articles=mock_articles)
+    state = UnifiedState(filtered_articles=mock_articles, keywords=[])
     with patch("nodes.summarize_nodes._summarize_article", return_value="Mock summary"):
         result = summarize_node(state)
         assert len(result.summaries) == 5
