@@ -1,6 +1,6 @@
 [project]
 name = "techno-watch-ia"
-version = "0.3.0"
+version = "0.3.1"
 description = "Veille techno pour une revue de presse RSS/Atom, Reddit, Bluesky"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
@@ -49,5 +49,7 @@ explicit = true
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",
+    "pytest>=8.0.0",
+    "pytest-mock>=3.12.0",
     "ruff>=0.12.12",
 ]
