@@ -43,3 +43,11 @@ logger.propagate = False
 
 def print_color(color, text):
     print(color + text)
+
+def count_by_type_articles(title, articles_by_source, color=Fore.LIGHTYELLOW_EX):
+    from collections import Counter
+    from core.logger import print_color
+    source_counts = Counter(item['source'].value for item in articles_by_source)    
+    print_color(color, "=" * 60)
+    print_color(color, f"{title} {source_counts}")
+    print_color(color, "=" * 60)

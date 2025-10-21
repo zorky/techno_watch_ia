@@ -5,7 +5,6 @@ from colorama import Fore
 
 from core.logger import logger
 from services.models import UnifiedState
-from models.states import RSSState
 from core.utils import measure_time, get_environment_variable
 
 THRESHOLD_SEMANTIC_SEARCH = float(get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
@@ -94,11 +93,13 @@ def _filter_articles_with_faiss(
     return filtered
 
 def filter_node(state: UnifiedState) -> UnifiedState:
+    from core.logger import count_by_type_articles
     logger.info("🔍 Filtrage des articles par mots-clés...")
 
     filtered = _filter_articles_with_faiss(
         state.articles, state.keywords, threshold=THRESHOLD_SEMANTIC_SEARCH
     )
     logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
+    count_by_type_articles("Nombre d'articles filtrés par sources", filtered) # OK
 
     return state.model_copy(update={"filtered_articles": filtered})

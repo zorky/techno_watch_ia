@@ -66,19 +66,17 @@ def summarize_node(state: UnifiedState) -> UnifiedState:
     #      
     from datetime import datetime, timezone
     from services.sources_ponderation import select_articles_for_summary
+    from core.logger import count_by_type_articles
 
     logger.info("✏️  Résumé des articles filtrés...")
-    LIMIT_ARTICLES_TO_RESUME = int(get_environment_variable("LIMIT_ARTICLES_TO_RESUME", -1))
-    if LIMIT_ARTICLES_TO_RESUME > 0:
-        logger.info(f"Limite de résumé à {LIMIT_ARTICLES_TO_RESUME} articles")
-        articles = state.filtered_articles[:LIMIT_ARTICLES_TO_RESUME]
-    else:
-        logger.info("Pas de limite sur le nombre d'articles à résumer")
-        articles = state.filtered_articles
+    articles = state.filtered_articles    
     
     logger.info(f"{len(articles)} à résumer :")
     # logger.info(f"{articles}")
     articles_to_summarise = select_articles_for_summary(articles)
+
+    count_by_type_articles("Nombre d'articles sélectionnés pour résumé par source", articles_to_summarise)
+
     logger.info(f"{len(articles_to_summarise)} articles sélectionnés pour résumé")
     summaries = []
     for i, article in enumerate(articles_to_summarise, start=1):        
@@ -95,4 +93,12 @@ def summarize_node(state: UnifiedState) -> UnifiedState:
         }
         summaries.append(summary)
         logger.info(f"Ajout du résumé {summary}")
+
+    LIMIT_ARTICLES_TO_RESUME = int(get_environment_variable("LIMIT_ARTICLES_TO_RESUME", -1))
+    if LIMIT_ARTICLES_TO_RESUME > 0:
+        logger.info(f"Limite de résumé à {LIMIT_ARTICLES_TO_RESUME} articles")
+        summaries = summaries[:LIMIT_ARTICLES_TO_RESUME]
+
+    count_by_type_articles("Nombre de résumés par source", summaries)
+    
     return state.model_copy(update={"summaries": summaries})

@@ -82,13 +82,9 @@ def select_articles_for_summary(articles_by_source: list[dict]) -> list[dict]:
     Returns:
         Liste des articles sélectionnés et équilibrés
     """
-    from core.logger import print_color
+    from core.logger import count_by_type_articles
     
-    color = Fore.LIGHTYELLOW_EX
-    print_color(color, "=" * 60)
-    print_color(color, f"Sélection des articles pour résumé sur {len(articles_by_source)}")
-    print_color(color, "=" * 60)
-    _count_by_type_articles("Nombre d'articles sources", articles_by_source)
+    count_by_type_articles(f"Nombre d'articles sources {len(articles_by_source)}", articles_by_source)
 
     limit_articles_to_resume = int(get_environment_variable('LIMIT_ARTICLES_TO_RESUME', 15))
     
@@ -111,7 +107,10 @@ def select_articles_for_summary(articles_by_source: list[dict]) -> list[dict]:
         logger.info(Fore.RED + f"Traitement source {source.value} avec quota {quotas.get(f'{source.value}_min', 0)}")
         # articles = articles_by_source[source]
         articles = list(filter(lambda x: x['source'] == source, articles_by_source))
-        logger.info(Fore.BLUE + f" - {len(articles)} articles disponibles pour la source {source.value}")
+        
+        count_by_type_articles(f"{len(articles)} articles disponibles pour la source {source.value}", articles)
+        
+        # logger.info(Fore.BLUE + f" - {len(articles)} articles disponibles pour la source {source.value}")
         if not articles:
             continue    
 
