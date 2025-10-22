@@ -104,6 +104,12 @@ SEND_EMAIL_TO=email_to@domain.ntld
 Se résume à un seul script à lancer
 
 ```bash
+$ python -m app [--debug]
+```
+
+Ancienne version :
+
+```bash
 $ python main_agent.py
 ```
 
@@ -111,6 +117,13 @@ ou pour obtenir plus d'informations
 
 ```bash
 $ python main_agent.py --debug
+```
+
+## Tests
+
+```bash 
+$ pytest tests/
+$ pytest tests/test_sources_ponderation.py -v
 ```
 
 ## Interface UI pour les articles résumés

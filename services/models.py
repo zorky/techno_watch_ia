@@ -30,6 +30,7 @@ class UnifiedState(BaseModel):
     # Ces champs sont modifiés en parallèle -> nécessitent Annotated
     sources: Annotated[list, add] = []    
 
+    # keywords: list[str] = []
     keywords: list[str]
  
     # Articles par source (modifiés en parallèle)

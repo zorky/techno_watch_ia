@@ -23,23 +23,29 @@ class ColorFormatter(logging.Formatter):
         record.levelname = levelname_color
         return super().format(record)
 
+def setup_logger(level=logging.INFO):
+    formatter = ColorFormatter(
+        fmt="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%d/%m/%Y %H:%M:%S"
+    )
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
 
-formatter = ColorFormatter(
-    fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%d/%m/%Y %H:%M:%S"
-)
+    logger = logging.getLogger(__name__)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+    logger.propagate = False
+    return logger
 
-handler = logging.StreamHandler()
-handler.setFormatter(formatter)
-
-logger = logging.getLogger(__name__)
-
-# logger.setLevel(logging.INFO)
-# try:
-#     logger.setLevel(logging.DEBUG if argscli.debug else logging.INFO)
-# except:
-#     ...
-logger.addHandler(handler)
-logger.propagate = False
+logger = setup_logger()
 
 def print_color(color, text):
     print(color + text)
+
+def count_by_type_articles(title, articles_by_source, color=Fore.LIGHTYELLOW_EX):
+    from collections import Counter
+    from core.logger import print_color
+    source_counts = Counter(item['source'].value for item in articles_by_source)    
+    print_color(color, "=" * 60)
+    print_color(color, f"{title} {source_counts}")
+    print_color(color, "=" * 60)

@@ -13,24 +13,9 @@ Ce script / cli exécute ces actions, dans l'ordre :
 Framework : LangGraph pour le graphe des actions (noeuds)
 
 Usage :
-    python main_agent.py [--debug]
+    python -m app [--debug]
 
-Installation et Configuration :
-
- - Installer les dépendances requises avec uv ou pip :
-
-   ```
-   uv venv
-   source .venv/bin/activate # ou source .venv/Scripts/activate sous Windows
-   uv sync --dev
-   ```
-  
-   paquets : langgraph, langchain, langchain_core, pydantic, feedparser, ...
-
- - un fichier .env est possible pour paramétrer des variables
-
- - Ollama doit être exécuté en local avec le modèle pullé, ou tout autre serveur LLM
-
+Ollama doit être exécuté en local avec le modèle pullé, ou tout autre serveur LLM
 """
 
 import logging
@@ -45,7 +30,7 @@ from langchain_core.runnables import RunnableLambda
 from models.states import RSSState
 # from read_opml import parse_opml_to_rss_list
 
-from core import argscli
+# from core import argscli
 from services.utils_fetchers import register_fetchers_auto
 from services.models import SourceType, UnifiedState
 
@@ -292,8 +277,10 @@ def prepare_data():
 # =========================
 def main():
     from db.db import init_db
+    from core.utils import configure_logging_from_args
     # from core.logger import logger
 
+    _, args = configure_logging_from_args()
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")
     logger.info(
         Fore.YELLOW
@@ -307,7 +294,8 @@ def main():
 
     agent = make_graph()
 
-    if argscli.debug:
+    # _, args = configure_logging_from_args()
+    if args.debug:
         logger.info(f"🤖 LangGraph déroulera cet automate...")
         _show_graph(agent)
 
@@ -324,6 +312,6 @@ def search():
     search_fts("python")
 
 
-if __name__ == "__main__":
-    main()
-    # search()
+# if __name__ == "__main__":
+#     main()
+#     # search()
