@@ -6,7 +6,7 @@ from email.mime.text import MIMEText
 from jinja_filters import register_jinja_filters
 
 from models.emails import EmailTemplateParams
-from core.utils import get_environment_variable
+from app.core.utils import get_environment_variable
 
 # =========================
 # Configuration SMTP

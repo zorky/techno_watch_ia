@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from services.models import SourceType
+from app.services.models import SourceType
 
 class ArticleModel(BaseModel):
     """Modèle Pydantic de vérification"""

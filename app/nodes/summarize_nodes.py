@@ -2,10 +2,14 @@ import logging
 logging.basicConfig(level=logging.INFO)
 from colorama import Fore
 
-from core.logger import logger
-from services.models import UnifiedState
-from core.utils import measure_time, get_environment_variable #, argscli
-from services.model_service import set_prompt
+from app.core.logger import logger
+from app.services.models import UnifiedState
+from app.core.utils import measure_time, get_environment_variable #, argscli
+from app.services.model_service import set_prompt
+from app.services.sources_ponderation import select_articles_for_summary
+from app.core.logger import count_by_type_articles
+from app.services.model_service import init_llm_chat
+from app.core.utils import configure_logging_from_args
 
 def _calculate_tokens(summary, elapsed):
     """Calcule le nombre approximatif de tokens dans un texte et le débit en tokens/s."""
@@ -20,9 +24,7 @@ def _calculate_tokens(summary, elapsed):
 @measure_time
 def _summarize_article(title, content):    
     import time
-    from services.model_service import init_llm_chat
-    from core.utils import configure_logging_from_args
-
+    
     prompt = set_prompt("IA, ingénieurie logicielle et cybersécurité", title, content)
     _, args = configure_logging_from_args()
     if args.debug:
@@ -65,8 +67,6 @@ def summarize_node(state: UnifiedState) -> UnifiedState:
     # dict Article : 'title', 'summary', 'link', 'published', 'score', 'source'   
     #      
     from datetime import datetime, timezone
-    from services.sources_ponderation import select_articles_for_summary
-    from core.logger import count_by_type_articles
 
     logger.info("✏️  Résumé des articles filtrés...")
     articles = state.filtered_articles    

@@ -31,14 +31,19 @@ from models.states import RSSState
 # from read_opml import parse_opml_to_rss_list
 
 # from core import argscli
-from services.utils_fetchers import register_fetchers_auto
-from services.models import SourceType, UnifiedState
+from .services.utils_fetchers import register_fetchers_auto
+from .services.models import SourceType, UnifiedState
 
-from core import get_environment_variable
-from core.logger import logger
+from .core import get_environment_variable
+from .core.logger import logger
 
-from nodes import filter_node, summarize_node, \
+from .nodes import filter_node, summarize_node, \
                   output_node, save_articles_node, send_articles_node
+from .nodes import dispatch_node, fetch_rss_node, fetch_reddit_node, fetch_bluesky_node, merge_fetched_articles
+
+from .core.utils import configure_logging_from_args    
+
+from .core.logger import print_color
 
 # =========================
 # Init du logging et logger
@@ -152,9 +157,7 @@ def create_legacy_wrapper(legacy_node_func):
 # Construction du graphe : noeuds (nodes) et transitions (edges)
 # fetch -> filter -> summarize -> output
 # =========================
-def make_graph():
-    from nodes import dispatch_node, fetch_rss_node, fetch_reddit_node, fetch_bluesky_node, merge_fetched_articles
-    from core.logger import print_color
+def make_graph():        
     RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH = which_fetcher()
     fetcher_flags = {
         "RSS_FETCH": RSS_FETCH,
@@ -276,9 +279,7 @@ def prepare_data():
 # Main
 # =========================
 def main():
-    from db.db import init_db
-    from core.utils import configure_logging_from_args
-    # from core.logger import logger
+    from db.db import init_db    
 
     _, args = configure_logging_from_args()
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")

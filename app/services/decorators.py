@@ -2,7 +2,7 @@ from typing import Callable
 
 import logging
 logging.basicConfig(level=logging.INFO)
-from core.logger import logger
+from app.core.logger import logger
 from colorama import Fore
 
 _FETCHERS = {}
@@ -23,7 +23,7 @@ def fetcher_class(cls):
             env_flag = "RSS_FETCH"
             ...
     """
-    from services.factory_fetcher import FetcherRegistry
+    from app.services.factory_fetcher import FetcherRegistry
     logger.info(Fore.YELLOW + f"🏷️  Décorateur @fetcher_class appelé pour: {cls.__name__}")
     FetcherRegistry.register(cls)
     logger.info(Fore.GREEN + f"✓ {cls.__name__} enregistré via décorateur")

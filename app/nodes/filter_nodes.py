@@ -3,9 +3,11 @@ import logging
 logging.basicConfig(level=logging.INFO)
 from colorama import Fore
 
-from core.logger import logger
-from services.models import UnifiedState
-from core.utils import measure_time, get_environment_variable
+from app.core.logger import logger
+from app.services.models import UnifiedState
+from app.core.utils import measure_time, get_environment_variable
+from app.core.logger import count_by_type_articles
+from app.services.model_service import init_sentence_model
 
 THRESHOLD_SEMANTIC_SEARCH = float(get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
 
@@ -25,7 +27,7 @@ def _filter_articles_with_faiss(
     :return: Articles filtrés
     """
     import faiss
-    from services.model_service import init_sentence_model
+    
     model = init_sentence_model()
 
     logger.info(f"Filtrage sémantique avec les mots-clés {keywords}")
@@ -93,7 +95,7 @@ def _filter_articles_with_faiss(
     return filtered
 
 def filter_node(state: UnifiedState) -> UnifiedState:
-    from core.logger import count_by_type_articles
+    
     logger.info("🔍 Filtrage des articles par mots-clés...")
 
     filtered = _filter_articles_with_faiss(

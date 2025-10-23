@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 from models.article import ArticleModel
-from services.models import SourceType
+from app.services.models import SourceType
 
 load_dotenv()
 DB_PATH = os.getenv("DB_PATH", "techno-watch.db")

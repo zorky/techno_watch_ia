@@ -1,10 +1,12 @@
 from functools import lru_cache
-from services.factory_fetcher import FetcherFactory
-from services.models import Source, SourceType, UnifiedState
-from core.logger import logger
 from colorama import Fore 
 import time
-from core.utils import get_environment_variable
+
+from app.services.factory_fetcher import FetcherFactory
+from app.services.models import Source, SourceType, UnifiedState
+from app.core.logger import logger
+from app.core.logger import print_color
+from app.core.utils import get_environment_variable
 from .utils_fetch_nodes import fetch_articles, get_rss_urls, register_fetchers, get_bluesky_urls, get_subs_reddit_urls
 
 import logging
@@ -83,7 +85,7 @@ def merge_fetched_articles(state: UnifiedState) -> dict:
     """Noeud de fusion des données ramenés par les fetchers"""
     """Fusionne tous les articles des différentes sources"""    
     from collections import Counter
-    from core.logger import print_color
+
 
     all_articles = []
     

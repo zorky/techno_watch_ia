@@ -6,7 +6,7 @@ from functools import lru_cache
 import base64
 import logging
 
-from services.models import SourceType
+from app.services.models import SourceType
 
 logging.basicConfig(level=logging.INFO)
 

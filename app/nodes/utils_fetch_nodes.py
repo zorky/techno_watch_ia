@@ -4,9 +4,9 @@ from colorama import Fore
 import logging
 logging.basicConfig(level=logging.INFO)
 
-from core.logger import logger
-from core.utils import get_environment_variable
-from services.models import Source, SourceType, UnifiedState
+from app.core.logger import logger
+from app.core.utils import get_environment_variable
+from app.services.models import Source, SourceType
 
 MAX_DAYS = int(get_environment_variable("MAX_DAYS", "10"))
 
@@ -14,11 +14,11 @@ __all__ = ["register_fetchers","fetch_articles",
            "get_rss_urls", "get_subs_reddit_urls", "get_bluesky_urls"]
 
 def register_fetchers():
-    from services.factory_fetcher import FetcherFactory
-    from services.fetchers.reedit_fetcher import RedditFetcher
-    from services.fetchers.rss_fetcher import RSSFetcher
-    from services.fetchers.bluesky_fetcher import BlueskyFetcher
-    from services.models import SourceType
+    from app.services.factory_fetcher import FetcherFactory
+    from app.services.fetchers.reedit_fetcher import RedditFetcher
+    from app.services.fetchers.rss_fetcher import RSSFetcher
+    from app.services.fetchers.bluesky_fetcher import BlueskyFetcher
+    from app.services.models import SourceType
 
     FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
     FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
@@ -30,7 +30,7 @@ def get_rss_urls():
     Le .env ne contient que des types string et au format JSON
     """
     from read_opml import parse_opml_to_rss_list
-    from services.models import Source, SourceType
+    from app.services.models import Source, SourceType
     OPML_FILE = get_environment_variable("OPML_FILE", "my.opml")
 
     logger.info("Obtention des URL RSS à traiter...")

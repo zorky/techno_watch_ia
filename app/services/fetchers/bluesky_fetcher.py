@@ -5,12 +5,13 @@ from pydantic import BaseModel
 import logging
 logging.basicConfig(level=logging.INFO)
 
-from core.logger import logger, Fore
-from core import measure_time
+from app.core.logger import logger, Fore
+from app.core import measure_time
 
-from services.decorators import fetcher_class
-from services.fetchers.base_fetcher import BaseFetcher
-from services.models import Source, SourceType
+from app.services.decorators import fetcher_class
+from app.services.fetchers.base_fetcher import BaseFetcher
+from app.services.models import Source, SourceType
+from app.core.logger import print_color
 
 # class ArticleBluesky(BaseModel):
 #     title: str
@@ -63,9 +64,7 @@ class BlueskyFetcher(BaseFetcher):
         - Un handle utilisateur : "@user.bsky.social" 
         - Un DID : "did:plc:..."
         - "firehose" pour le feed public général
-        """        
-        from core.logger import print_color
-
+        """                
         color = Fore.LIGHTMAGENTA_EX
         print_color(color, "=" * 60)
         print_color(color, f"BLUESKY Fetcher fetch_articles {source.url}")

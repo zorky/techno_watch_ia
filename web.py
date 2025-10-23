@@ -14,7 +14,7 @@ from typing import Optional
 
 import logging
 
-from services.models import SourceType
+from app.services.models import SourceType
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 import logging
 logging.basicConfig(level=logging.INFO)
 from colorama import Fore
-from core.logger import logger
+from app.core.logger import logger
 from models.states import RSSState
 
 def save_articles_node(state: RSSState) -> RSSState:
