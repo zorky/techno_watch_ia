@@ -96,11 +96,10 @@ def _load_sources_from_config(config_path: str, type_source: str) -> list[Source
     """
     
     config = _load_json_reddit_bluesky(config_path)
-
-    logger.info(Fore.LIGHTRED_EX + f"Source pour {type_source}")
+    
+    logger.info(Fore.LIGHTRED_EX + f"filter sources Reddit ou Bluesky : {type_source}")
     sources = []
-    for source_config in config.get('sources', []):
-        logger.info(Fore.RED + f"filter sources Reddit ou Bluesky {type_source}")
+    for source_config in config.get('sources', []):        
         if type_source == 'reddit':
             sources.append(Source(
                 type=SourceType.REDDIT,
