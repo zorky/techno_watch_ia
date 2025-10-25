@@ -7,8 +7,8 @@ from langchain_openai import ChatOpenAI
 
 from colorama import Fore
 
-from core.logger import logger
-from core.utils import get_environment_variable
+from app.core.logger import logger
+from app.core.utils import get_environment_variable
 
 # =========================
 # Configuration du modèle LLM inférence

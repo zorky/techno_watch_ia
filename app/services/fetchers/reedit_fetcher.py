@@ -4,13 +4,14 @@ from datetime import datetime, timedelta
 import logging
 logging.basicConfig(level=logging.INFO)
 
-from services.decorators import fetcher_class
-from services.fetchers.base_fetcher import BaseFetcher
-from services.models import Source, SourceType
+from app.services.decorators import fetcher_class
+from app.services.fetchers.base_fetcher import BaseFetcher
+from app.services.models import Source, SourceType
 
-from core.logger import logger, Fore
-from core.utils import get_environment_variable
-from core import measure_time
+from app.core.logger import logger, Fore
+from app.core.utils import get_environment_variable
+from app.core import measure_time
+from app.core.logger import print_color
 
 @fetcher_class
 class RedditFetcher(BaseFetcher):
@@ -26,8 +27,7 @@ class RedditFetcher(BaseFetcher):
         self.max_fetch = int(get_environment_variable("REDDIT_MAX_FETCH", 10))
     
     @measure_time
-    def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
-        from core.logger import print_color
+    def fetch_articles(self, source: Source, max_days: int) -> list[dict]:        
         articles = []
         cutoff_date = datetime.now() - timedelta(days=max_days)        
         subreddit = self.reddit.subreddit(source.subreddit)

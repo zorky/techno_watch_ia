@@ -3,12 +3,13 @@ from datetime import datetime, timedelta
 import logging
 logging.basicConfig(level=logging.INFO)
 
-from core.logger import logger, Fore
-from core import measure_time
+from app.core.logger import logger, Fore
+from app.core import measure_time
 
-from services.decorators import fetcher_class
-from services.fetchers.base_fetcher import BaseFetcher
-from services.models import Source, SourceType
+from app.services.decorators import fetcher_class
+from app.services.fetchers.base_fetcher import BaseFetcher
+from app.services.models import Source, SourceType
+from app.core.logger import print_color
 
 @fetcher_class
 class RSSFetcher(BaseFetcher):    
@@ -86,8 +87,7 @@ class RSSFetcher(BaseFetcher):
 
     @measure_time
     def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
-        """Votre logique RSS existante"""
-        from core.logger import print_color
+        """Votre logique RSS existante"""        
         AGENT = "ReaderRSS/1.0"
         RESOLVE_RELATIVE_URIS = False
         SANITIZE_HTML = True

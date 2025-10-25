@@ -1,11 +1,13 @@
 from math import ceil
 import logging
-from services.models import SourceType
+from app.services.models import SourceType
 
 logging.basicConfig(level=logging.INFO)
 
-from core.logger import logger, Fore
-from core import get_environment_variable
+from app.core.logger import logger, Fore
+from app.core import get_environment_variable
+from app.core.logger import print_color
+from app.core.logger import count_by_type_articles
 
 def _calculate_quotas(total_count):
     """Calcul des quotas par source selon % donnés en .env"""
@@ -64,7 +66,7 @@ def _fill_flexible_slots(remaining_articles, flexible_slots, processed_sources: 
 
 def _count_by_type_articles(title, articles):
     from collections import Counter
-    from core.logger import print_color
+    
     source_counts = Counter(item['source'].value for item in articles)
     color = Fore.LIGHTYELLOW_EX
     print_color(color, "=" * 60)
@@ -81,9 +83,7 @@ def select_articles_for_summary(articles_by_source: list[dict]) -> list[dict]:
     
     Returns:
         Liste des articles sélectionnés et équilibrés
-    """
-    from core.logger import count_by_type_articles
-    
+    """        
     count_by_type_articles(f"Nombre d'articles sources {len(articles_by_source)}", articles_by_source)
 
     limit_articles_to_resume = int(get_environment_variable('LIMIT_ARTICLES_TO_RESUME', 15))

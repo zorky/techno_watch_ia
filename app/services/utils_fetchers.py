@@ -1,15 +1,17 @@
 import logging
 logging.basicConfig(level=logging.INFO)
-from core.logger import logger
 from colorama import Fore
+
+from app.core.logger import logger
+from app.services.factory_fetcher import FetcherRegistry
 
 def register_fetchers_auto():
     """Découvre automatiquement tous les BaseFetcher du module."""
     import importlib
     import pkgutil
-    from services.factory_fetcher import FetcherRegistry
+
     
-    MODULE_FETCHERS = "services.fetchers"
+    MODULE_FETCHERS = "app.services.fetchers"
     logger.info(Fore.CYAN + f"🔍 Découverte automatique dans {MODULE_FETCHERS}")    
     
     fetchers_package = importlib.import_module(MODULE_FETCHERS)

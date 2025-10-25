@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from services.models import Source
+from app.services.models import Source
 
 class BaseFetcher(ABC):
     @abstractmethod

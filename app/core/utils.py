@@ -4,8 +4,9 @@ from functools import wraps
 import time
 import logging
 import argparse
-from colorama import Fore, Style, init
-from core.logger import setup_logger
+
+from app.core.logger import setup_logger
+from app.core.logger import logger
 
 # =========================
 # Configuration du logging
@@ -24,8 +25,7 @@ def configure_logging_from_args():
 
 def measure_time(func):
     @wraps(func)
-    def wrapper(*args, **kwargs):
-        from core.logger import logger
+    def wrapper(*args, **kwargs):        
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()

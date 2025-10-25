@@ -1,7 +1,7 @@
 from unittest.mock import patch
-from nodes.summarize_nodes import summarize_node
-from services.models import SourceType, UnifiedState
-from services.sources_ponderation import select_articles_for_summary
+from app.nodes.summarize_nodes import summarize_node
+from app.services.models import SourceType, UnifiedState
+from app.services.sources_ponderation import select_articles_for_summary
 
 
 def test_select_articles_for_summary_basic(mock_articles, mock_env_vars):
@@ -39,8 +39,9 @@ def test_select_articles_for_summary_limit(mock_articles, mock_env_vars):
 
 def test_summarize_node_limit(mock_articles, mock_env_vars):
     # state = UnifiedState(filtered_articles=mock_articles)
+    PATCH="app.nodes.summarize_nodes._summarize_article"
     state = UnifiedState(filtered_articles=mock_articles, keywords=[])
-    with patch("nodes.summarize_nodes._summarize_article", return_value="Mock summary"):
+    with patch(PATCH, return_value="Mock summary"):
         result = summarize_node(state)
         assert len(result.summaries) == 5
         assert all(s["summary"] == "Mock summary" for s in result.summaries)
