@@ -5,7 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from jinja_filters import register_jinja_filters
 
-from models.emails import EmailTemplateParams
+from app.models.emails import EmailTemplateParams
 from app.core.utils import get_environment_variable
 
 # =========================
@@ -91,7 +91,7 @@ def send_watch_articles(params: EmailTemplateParams):
     )
 
 if __name__ == "__main__":
-    from models.emails import EmailTemplateParams
+    from app. import EmailTemplateParams
     articles = [
         {'title': "L'IA révolutionne la médecine en 2025", 'link': 'https://domain.ntld', 'summary': 'résumé', 'score': '60 %'},
         {'title': "Comment l'énergie solaire transforme les villes", 'link': 'https://domain2.ntld', 'summary': 'résumé', 'score': '45 %'},

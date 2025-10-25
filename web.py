@@ -15,6 +15,8 @@ from typing import Optional
 import logging
 
 from app.services.models import SourceType
+from app.db.db import ArticleFTS, get_db
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,7 @@ register_jinja_filters(templates.env)
 @app.get("/")
 def read_articles(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
-    from db import read_articles
+    from app.db import read_articles
     articles = read_articles(date)
     logger.debug(f"Articles lus: len({articles})")
     # for article in articles:
@@ -56,7 +58,7 @@ def search_articles(
         date_min/date_max: Filtres de date (format YYYY-MM-DD)
         limit: Nombre max de résultats
     """
-    from db.db import ArticleFTS, get_db
+    
     from datetime import datetime    
 
     if not q:

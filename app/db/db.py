@@ -10,7 +10,8 @@ from sqlalchemy import Enum as SQLAlchemyEnum
 from contextlib import contextmanager
 from dotenv import load_dotenv
 from datetime import datetime, timezone
-from models.article import ArticleModel
+
+from app.models.article import ArticleModel
 from app.services.models import SourceType
 
 load_dotenv()

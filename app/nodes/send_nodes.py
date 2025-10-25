@@ -3,8 +3,8 @@ logging.basicConfig(level=logging.INFO)
 from dotenv import load_dotenv
 from app.core.logger import logger
 from app.core.utils import get_environment_variable
-from models.states import RSSState
-from models.emails import EmailTemplateParams
+from app.models.states import RSSState
+from app.models.emails import EmailTemplateParams
 
 load_dotenv()
 THRESHOLD_SEMANTIC_SEARCH = float(get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
