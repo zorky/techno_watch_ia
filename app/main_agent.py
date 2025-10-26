@@ -277,7 +277,7 @@ def prepare_data():
 # Main
 # =========================
 def main():
-    from db.db import init_db    
+    from app.db import init_db    
 
     _, args = configure_logging_from_args()
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")
@@ -302,7 +302,7 @@ def main():
 
 
 def search():
-    from db.db import (
+    from app.db import (
         search_fts,              
         init_db,
     )

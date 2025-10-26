@@ -39,7 +39,7 @@ def nl2br(value):
 
 @lru_cache(maxsize=32)
 def get_svg_base64(source: str) -> str:
-    """cache des icones SVG en base64 pour les emails."""
+    """cache des icones SVG en base64 pour les emails."""    
     icon_path = Path(__file__).parent / "templates" / "web" / "icons" / f"{source}.svg"
     with open(icon_path, "rb") as f:
         return base64.b64encode(f.read()).decode("utf-8")
@@ -52,8 +52,7 @@ def icon_html(source: SourceType, size: int = 24, email: bool = False) -> str:
         size: Taille en pixels (défaut: 24).
         email: Si True, retourne une balise <img> avec SVG en base64.
     """    
-    logging.debug(f"icon_html: source={source}, size={size}, email={email}")
-
+    logging.debug(f"icon_html: source={source}, size={size}, email={email}")    
     icon_path = Path(__file__).parent / "templates" / "web" / "icons" / f"{source}.svg"
     FALLBACK_EMOJIS = {
         "rss": "📡",

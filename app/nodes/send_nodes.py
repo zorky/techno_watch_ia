@@ -10,7 +10,7 @@ load_dotenv()
 THRESHOLD_SEMANTIC_SEARCH = float(get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
 
 def send_articles_node(state: RSSState) -> RSSState:
-    from send_articles_email import send_watch_articles
+    from app.send_articles_email import send_watch_articles
     
     logger.info("Envoi mail des articles")
     logger.info(f"Envoi de {len(state.summaries)} articles")

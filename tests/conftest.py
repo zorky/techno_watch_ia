@@ -26,3 +26,4 @@ def mock_env_vars(monkeypatch):
     monkeypatch.setenv("BLUESKY_WEIGHT", "20")
     monkeypatch.setenv("LIMIT_ARTICLES_TO_RESUME", "5")
     monkeypatch.setenv("FRESHNESS_BOOST_THRESHOLD", "0.3")
+

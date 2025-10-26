@@ -8,12 +8,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi import Request
 
 from dotenv import load_dotenv
-from jinja_filters import register_jinja_filters
 
 from typing import Optional
 
 import logging
 
+from app.jinja_filters import register_jinja_filters
 from app.services.models import SourceType
 from app.db.db import ArticleFTS, get_db
 
@@ -23,9 +23,11 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 DB_PATH = os.getenv("DB_PATH", "techno-watch.db")
 
+TEMPLATES_WEB = "app/templates/web"
+
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="templates/web"), name="static")
-templates = Jinja2Templates(directory="templates/web")
+app.mount("/static", StaticFiles(directory=TEMPLATES_WEB), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_WEB)
 
 register_jinja_filters(templates.env)
 
