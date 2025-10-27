@@ -1,0 +1,9 @@
+services:
+  techno-watch-ia:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+    env_file:
+      - .env
+    # volumes:
+    #   - ./results:/app/results
