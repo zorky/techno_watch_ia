@@ -1,5 +1,6 @@
-# Dockerfile pour l'application CLI techno_watch_ia
-#
+# Dockerfile pour l'application CLI techno_watch_ia, en multi stages
+# utilisation d'uv pour l'installation des packages
+# 
 # par le cli docker : docker build -f docker/Dockerfile.app -t techno-watch-ia:latest .
 # par le compose : docker compose -f techno-watch.yml build
 #
@@ -13,6 +14,7 @@
 # docker compose -f techno-watch.yml run --rm --entrypoint bash app
 # docker run --rm -it --entrypoint bash techno-watch-ia -v ./data:/app/data
 
+# Stage 1
 FROM python:3.11-slim AS builder
 
 # Variables d'environnement pour Python et uv
