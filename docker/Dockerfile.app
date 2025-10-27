@@ -1,11 +1,17 @@
 # Dockerfile pour l'application CLI techno_watch_ia
+#
 # par le cli docker : docker build -f docker/Dockerfile.app -t techno-watch-ia:latest .
 # par le compose : docker compose -f techno-watch.yml build
+#
 # run par le cli :
 # docker run --env-file .env techno-watch-ia:latest
 # docker run --env-file .env -v $(pwd)/data:/app/data -w /app techno-watch-ia:latest
 # run par le compose :
 # docker compose -f techno-watch.yml run app
+# 
+# entrer dans le container en surchargeant l'entrypoint mis dans le Dockerfile :
+# docker compose -f techno-watch.yml run --rm --entrypoint bash app
+# docker run --rm -it --entrypoint bash techno-watch-ia -v ./data:/app/data
 
 FROM python:3.11-slim AS builder
 

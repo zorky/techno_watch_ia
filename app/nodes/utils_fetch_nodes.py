@@ -29,7 +29,7 @@ def get_rss_urls():
     Obtient la liste des URL RSS à traiter à partir des variables d'environnement.
     Le .env ne contient que des types string et au format JSON
     """
-    from read_opml import parse_opml_to_rss_list
+    from app.read_opml import parse_opml_to_rss_list
     from app.services.models import Source, SourceType
     OPML_FILE = get_environment_variable("OPML_FILE", "my.opml")
 
