@@ -137,7 +137,7 @@ Sur http://127.0.0.1:8000/
 
 ## L'automate exécuté 
 
-![Schéma généré](schema-graphe.png)
+![Schéma généré](docs/schema-graphe.png)
 
 ## Gmail SMTP
 
