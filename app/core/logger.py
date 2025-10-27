@@ -5,10 +5,8 @@ init(autoreset=True)
 
 logging.basicConfig(level=logging.INFO)
 
-
 def print_color(color, text):
     print(color + text)
-
 
 # =========================
 # Formatter coloré
@@ -28,23 +26,36 @@ class ColorFormatter(logging.Formatter):
         record.levelname = levelname_color
         return super().format(record)
 
+logger = logging.getLogger(__name__)
+logger.propagate = False  # Empêche la propagation aux loggers parents
 
-def setup_logger(level=logging.INFO):
+# Assurez-vous qu'il n'y a qu'un seul handler
+if not logger.handlers:
     formatter = ColorFormatter(
         fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%d/%m/%Y %H:%M:%S"
     )
     handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
-
-    logger = logging.getLogger(__name__)
-    logger.setLevel(level)
     logger.addHandler(handler)
-    logger.propagate = False
+
+def setup_logger(level=logging.INFO):
+    formatter = ColorFormatter(
+        fmt="%(asctime)s - %(levelname)s - %(message)s", datefmt="%d/%m/%Y %H:%M:%S"
+    )    
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    # logger = logging.getLogger(__name__)
+    # logger.setLevel(level)
+    # logger.addHandler(handler)
+    # logger.propagate = False
     return logger
 
 
 logger = setup_logger()
-
 
 def count_by_type_articles(title, articles_by_source, color=Fore.LIGHTYELLOW_EX):
     from collections import Counter
