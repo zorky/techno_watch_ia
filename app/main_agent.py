@@ -27,18 +27,32 @@ from langchain_core.runnables import RunnableLambda
 # from langchain_openai import ChatOpenAI
 # from langchain_ollama import ChatOllama
 
-from models.states import RSSState
-# from read_opml import parse_opml_to_rss_list
+from .models.states import RSSState
 
-# from core import argscli
-from services.utils_fetchers import register_fetchers_auto
-from services.models import SourceType, UnifiedState
+from .services.utils_fetchers import register_fetchers_auto
+from .services.models import SourceType, UnifiedState
 
-from core import get_environment_variable
-from core.logger import logger
+from .core import get_environment_variable
+from .core.logger import logger
 
-from nodes import filter_node, summarize_node, \
-                  output_node, save_articles_node, send_articles_node
+from .nodes import (
+    filter_node,
+    summarize_node,
+    output_node,
+    save_articles_node,
+    send_articles_node,
+)
+from .nodes import (
+    dispatch_node,
+    fetch_rss_node,
+    fetch_reddit_node,
+    fetch_bluesky_node,
+    merge_fetched_articles,
+)
+
+from .core.utils import configure_logging_from_args
+
+from .core.logger import print_color
 
 # =========================
 # Init du logging et logger
@@ -56,7 +70,9 @@ load_dotenv()
 
 # LLM_MODEL = get_environment_variable("LLM_MODEL", "mistral")
 LLM_MODEL = get_environment_variable("LLM_MODEL", "mistral")
-LLM_API = get_environment_variable("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
+LLM_API = get_environment_variable(
+    "OLLAMA_BASE_URL", "http://localhost:11434/v1"
+)  # si ChatOpenAI
 # LLM_API = get_environment_variable("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
 LLM_TEMPERATURE = float(get_environment_variable("LLM_TEMPERATURE", "0.3"))
 # Modèles embeddings disponibles et spécs : https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
@@ -64,7 +80,9 @@ LLM_TEMPERATURE = float(get_environment_variable("LLM_TEMPERATURE", "0.3"))
 # MODEL_EMBEDDINGS="all-mpnet-base-v2"
 
 FILTER_KEYWORDS = get_environment_variable("FILTER_KEYWORDS", "").split(",")
-THRESHOLD_SEMANTIC_SEARCH = float(get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
+THRESHOLD_SEMANTIC_SEARCH = float(
+    get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5")
+)
 MAX_DAYS = int(get_environment_variable("MAX_DAYS", "10"))
 OPML_FILE = get_environment_variable("OPML_FILE", "my.opml")
 # TOP_P = float(get_environment_variable("TOP_P", "0.5"))
@@ -78,17 +96,19 @@ RSS_FETCH = True
 REDDIT_FETCH = True
 BLUESKY_FETCH = True
 
+
 def which_fetcher():
     do_rss = get_environment_variable("RSS_FETCH", "1")
-    RSS_FETCH = do_rss.lower() in ('1', 'true', 'yes', 'on', 'oui')
+    RSS_FETCH = do_rss.lower() in ("1", "true", "yes", "on", "oui")
     logger.info(Fore.BLUE + f"RSS_FETCH : {RSS_FETCH}")
     do_reddit = get_environment_variable("REDDIT_FETCH", "1")
-    REDDIT_FETCH = do_reddit.lower() in ('1', 'true', 'yes', 'on', 'oui')
+    REDDIT_FETCH = do_reddit.lower() in ("1", "true", "yes", "on", "oui")
     logger.info(Fore.BLUE + f"REDDIT_FETCH : {REDDIT_FETCH}")
     do_bluesky = get_environment_variable("BLUESKY_FETCH", "1")
-    BLUESKY_FETCH = do_bluesky.lower() in ('1', 'true', 'yes', 'on', 'oui')
+    BLUESKY_FETCH = do_bluesky.lower() in ("1", "true", "yes", "on", "oui")
     logger.info(Fore.BLUE + f"BLUESKY_FETCH : {BLUESKY_FETCH}")
     return RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH
+
 
 def preprocess_text(text):
     """For tests purposes - Prétraitement simple : tokenization, suppression des stopwords, lemmatisation."""
@@ -115,9 +135,11 @@ def preprocess_text(text):
     tokens = [lemmatizer.lemmatize(t) for t in tokens]
     return " ".join(tokens)
 
+
 # =========================
 # Nœuds du graphe
 # =========================
+
 
 def create_legacy_wrapper(legacy_node_func):
     """
@@ -148,45 +170,48 @@ def create_legacy_wrapper(legacy_node_func):
 
     return wrapper
 
+
 # =========================
 # Construction du graphe : noeuds (nodes) et transitions (edges)
 # fetch -> filter -> summarize -> output
 # =========================
 def make_graph():
-    from nodes import dispatch_node, fetch_rss_node, fetch_reddit_node, fetch_bluesky_node, merge_fetched_articles
-    from core.logger import print_color
     RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH = which_fetcher()
     fetcher_flags = {
         "RSS_FETCH": RSS_FETCH,
         "REDDIT_FETCH": REDDIT_FETCH,
         "BLUESKY_FETCH": BLUESKY_FETCH,
     }
-    logger.info(f"Fetchers activés: RSS={RSS_FETCH}, Reddit={REDDIT_FETCH}, Bluesky={BLUESKY_FETCH}")    
-    
+    logger.info(
+        f"Fetchers activés: RSS={RSS_FETCH}, Reddit={REDDIT_FETCH}, Bluesky={BLUESKY_FETCH}"
+    )
+
     color = Fore.BLUE
     print_color(color, "=" * 60)
     print_color(color, "ÉTAPE 1 : Enregistrement des fetchers")
     print_color(color, "=" * 60)
     register_fetchers_auto()
-    
+
     print_color(color, "=" * 60)
     print_color(color, "ÉTAPE 2 : Enregistrement des nodes noeuds")
     print_color(color, "=" * 60)
     graph = StateGraph(UnifiedState)
 
-    # à splitter en des noeuds fetcher pour exécution //    
+    # à splitter en des noeuds fetcher pour exécution //
     graph.add_node("dispatch", RunnableLambda(dispatch_node))
-    
+
     if not any(fetcher_flags.values()):
         logger.info(Fore.RED + f"❌ Aucune source activée, on arrête !")
-        raise ValueError("Au moins un fetcher doit être activé avec l'une des 3 variables de .env : RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH")
-         
+        raise ValueError(
+            "Au moins un fetcher doit être activé avec l'une des 3 variables de .env : RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH"
+        )
+
     if RSS_FETCH:
         graph.add_node("fetch_rss", RunnableLambda(fetch_rss_node))
     if REDDIT_FETCH:
         graph.add_node("fetch_reddit", RunnableLambda(fetch_reddit_node))
     if BLUESKY_FETCH:
-        graph.add_node("fetch_bluesky", RunnableLambda(fetch_bluesky_node))        
+        graph.add_node("fetch_bluesky", RunnableLambda(fetch_bluesky_node))
 
     # noeud de fusion des N fetchers précédents
     graph.add_node("merge_articles", RunnableLambda(merge_fetched_articles))
@@ -218,17 +243,18 @@ def make_graph():
         graph.add_edge("fetch_reddit", "merge_articles")
     if BLUESKY_FETCH:
         graph.add_edge("dispatch", "fetch_bluesky")
-        graph.add_edge("fetch_bluesky", "merge_articles")        
-    
+        graph.add_edge("fetch_bluesky", "merge_articles")
+
     # on fusionne le tout
-    graph.add_edge("merge_articles", "filter")    
-    
+    graph.add_edge("merge_articles", "filter")
+
     graph.add_edge("filter", "summarize")
     graph.add_edge("summarize", "displayoutput")
     graph.add_edge("displayoutput", "savedbsummaries")
     graph.add_edge("savedbsummaries", "sendsummaries")
 
     return graph.compile()
+
 
 def _show_graph(graph):
     """Affichage du graphe / automate LangGraph qui est utilisé"""
@@ -263,8 +289,9 @@ def _show_graph(graph):
     except Exception as e:
         logger.error(f"{e}")
 
-def prepare_data():    
-    initial_state = UnifiedState(        
+
+def prepare_data():
+    initial_state = UnifiedState(
         sources=[],
         keywords=FILTER_KEYWORDS
         if FILTER_KEYWORDS != [""]
@@ -272,13 +299,12 @@ def prepare_data():
     )
     return initial_state
 
+
 # =========================
 # Main
 # =========================
 def main():
-    from db.db import init_db
-    from core.utils import configure_logging_from_args
-    # from core.logger import logger
+    from app.db import init_db
 
     _, args = configure_logging_from_args()
     logger.info(Fore.MAGENTA + Style.BRIGHT + "=== Agent RSS avec résumés LLM ===")
@@ -288,7 +314,7 @@ def main():
         + f"sur {LLM_API} avec {LLM_MODEL} sur une T° {LLM_TEMPERATURE} sur les {MAX_DAYS} derniers jours"
     )
     logger.info(Fore.YELLOW + f"Initialisation DB")
-    init_db()        
+    init_db()
 
     initial_state = prepare_data()
 
@@ -303,12 +329,12 @@ def main():
 
 
 def search():
-    from db.db import (
-        search_fts,              
+    from app.db import (
+        search_fts,
         init_db,
     )
-    
-    init_db()    
+
+    init_db()
     search_fts("python")
 
 

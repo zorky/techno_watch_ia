@@ -8,29 +8,33 @@ from fastapi.staticfiles import StaticFiles
 from fastapi import Request
 
 from dotenv import load_dotenv
-from jinja_filters import register_jinja_filters
 
 from typing import Optional
 
 import logging
 
-from services.models import SourceType
+from app.jinja_filters import register_jinja_filters
+from app.services.models import SourceType
+from app.db.db import ArticleFTS, get_db
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 DB_PATH = os.getenv("DB_PATH", "techno-watch.db")
 
+TEMPLATES_WEB = "app/templates/web"
+
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="templates/web"), name="static")
-templates = Jinja2Templates(directory="templates/web")
+app.mount("/static", StaticFiles(directory=TEMPLATES_WEB), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_WEB)
 
 register_jinja_filters(templates.env)
 
 @app.get("/")
 def read_articles(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
-    from db import read_articles
+    from app.db import read_articles
     articles = read_articles(date)
     logger.debug(f"Articles lus: len({articles})")
     # for article in articles:
@@ -56,7 +60,7 @@ def search_articles(
         date_min/date_max: Filtres de date (format YYYY-MM-DD)
         limit: Nombre max de résultats
     """
-    from db.db import ArticleFTS, get_db
+    
     from datetime import datetime    
 
     if not q:

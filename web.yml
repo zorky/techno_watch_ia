@@ -1,3 +1,5 @@
+# build image techno-watch-web : docker compose -f web.yml build
+# lancement : docker compose -f web.yml up
 services:
   fastapi-app:
     build:

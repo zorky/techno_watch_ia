@@ -20,3 +20,5 @@ pydantic>=2.11.7
 
 # Multipart forms (pour FastAPI)
 python-multipart>=0.0.6
+
+colorama>=0.4.6

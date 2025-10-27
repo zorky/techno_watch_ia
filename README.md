@@ -122,8 +122,9 @@ $ python main_agent.py --debug
 ## Tests
 
 ```bash 
-$ pytest tests/
+$ pytest tests
 $ pytest tests/test_sources_ponderation.py -v
+$ pytest tests/test_send_articles_email.py -v
 ```
 
 ## Interface UI pour les articles résumés
@@ -136,7 +137,7 @@ Sur http://127.0.0.1:8000/
 
 ## L'automate exécuté 
 
-![Schéma généré](schema-graphe.png)
+![Schéma généré](docs/schema-graphe.png)
 
 ## Gmail SMTP
 
