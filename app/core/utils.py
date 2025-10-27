@@ -13,19 +13,24 @@ from app.core.logger import logger
 # Couleurs
 # =========================
 
+
 def parse_cli_args():
     parser = argparse.ArgumentParser(description="Agent RSS avec résumés LLM")
-    parser.add_argument("--debug", action="store_true", help="Active le mode debug détaillé")
+    parser.add_argument(
+        "--debug", action="store_true", help="Active le mode debug détaillé"
+    )
     return parser.parse_args()
+
 
 def configure_logging_from_args():
     args = parse_cli_args()
     level = logging.DEBUG if args.debug else logging.INFO
     return setup_logger(level=level), args
 
+
 def measure_time(func):
     @wraps(func)
-    def wrapper(*args, **kwargs):        
+    def wrapper(*args, **kwargs):
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()
@@ -36,6 +41,7 @@ def measure_time(func):
 
     return wrapper
 
-def get_environment_variable(key, default = None):
+
+def get_environment_variable(key, default=None):
     load_dotenv()
     return os.getenv(key, default)

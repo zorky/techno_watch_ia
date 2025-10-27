@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 logging.basicConfig(level=logging.INFO)
 from app.core.logger import logger
 
+
 class RSSFeed(NamedTuple):
     titre: str
     lien_rss: str

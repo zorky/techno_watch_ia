@@ -9,6 +9,7 @@ from email.mime.text import MIMEText
 from app.core.logger import print_color
 from app.jinja_filters import register_jinja_filters
 from app.models import EmailTemplateParams
+
 # from app.models.emails import EmailTemplateParams
 from app.core.utils import get_environment_variable
 
@@ -29,28 +30,31 @@ SEND_EMAIL_TO = get_environment_variable("SEND_EMAIL_TO", "jane.do@domain.ntld")
 
 PATH = Path(__file__).parent / "templates"
 
+
 def _set_env_render_filters():
     print_color(Fore.GREEN, f"Setting Jinja2 template path to: {PATH}")
     loader = FileSystemLoader(PATH)
-    env = Environment(
-        loader=loader,
-        autoescape=True
-    )
+    env = Environment(loader=loader, autoescape=True)
     register_jinja_filters(env)
     return env
 
-def render_email_template(params: EmailTemplateParams, template_name: str, /) -> str:    
+
+def render_email_template(params: EmailTemplateParams, template_name: str, /) -> str:
     env = _set_env_render_filters()
     template = env.get_template(template_name)
     threshold_str = f"{int(params.threshold * 100)}%"
-    return template.render(articles=params.articles, 
-                           keywords=params.keywords, 
-                           threshold=threshold_str,
-                           date=datetime.now().strftime("%d/%m/%Y"))
+    return template.render(
+        articles=params.articles,
+        keywords=params.keywords,
+        threshold=threshold_str,
+        date=datetime.now().strftime("%d/%m/%Y"),
+    )
+
 
 # =========================
 # Envoi du mail
 # =========================
+
 
 def _send_email(
     subject: str,
@@ -81,6 +85,7 @@ def _send_email(
         server.login(login, password)
         server.sendmail(sender, to, msg.as_string())
 
+
 def send_watch_articles(params: EmailTemplateParams):
     current_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     email_subject = f"[VEILLE] Revue de veille techno du {current_date}"
@@ -98,27 +103,40 @@ def send_watch_articles(params: EmailTemplateParams):
         password=SMTP_PASSWORD,
     )
 
+
 if __name__ == "__main__":
     """Test d'envoi d'email avec des articles fictifs."""
     articles = [
-        {'title': "L'IA révolutionne la médecine en 2025", 'link': 'https://domain.ntld', 'summary': 'résumé', 'score': '60', 'published': '2025-01-01T20:30:00', 'source': 'rss'},
-        {'title': "Comment l'énergie solaire transforme les villes", 'link': 'https://domain2.ntld', 'summary': 'résumé', 'score': '45', 'published': '2025-01-02T10:15:00', 'source': 'rss'},
-    # "Les dernières avancées en robotique industrielle",
-    # "Comment l'énergie solaire transforme les villes",
-    # "La cybersécurité face aux nouvelles menaces",
-    # "Le cloud computing et la gestion des données",
-    # "L'impact de la 5G sur les objets connectés",
-    # "Les tendances du e-commerce en Europe",
-    # "L'automatisation dans le secteur bancaire",
-    # "L'évolution des véhicules électriques",
-    # "L'intelligence artificielle dans l'éducation"
+        {
+            "title": "L'IA révolutionne la médecine en 2025",
+            "link": "https://domain.ntld",
+            "summary": "résumé",
+            "score": "60",
+            "published": "2025-01-01T20:30:00",
+            "source": "rss",
+        },
+        {
+            "title": "Comment l'énergie solaire transforme les villes",
+            "link": "https://domain2.ntld",
+            "summary": "résumé",
+            "score": "45",
+            "published": "2025-01-02T10:15:00",
+            "source": "rss",
+        },
+        # "Les dernières avancées en robotique industrielle",
+        # "Comment l'énergie solaire transforme les villes",
+        # "La cybersécurité face aux nouvelles menaces",
+        # "Le cloud computing et la gestion des données",
+        # "L'impact de la 5G sur les objets connectés",
+        # "Les tendances du e-commerce en Europe",
+        # "L'automatisation dans le secteur bancaire",
+        # "L'évolution des véhicules électriques",
+        # "L'intelligence artificielle dans l'éducation"
     ]
     current_date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     email_subject = f"[VEILLE] Revue de veille techno du {current_date}"
     email = EmailTemplateParams(
-        articles=articles,
-        keywords=['ia', 'agent'],
-        threshold=0.5
+        articles=articles, keywords=["ia", "agent"], threshold=0.5
     )
     html_content = render_email_template(email, "email_template.html.j2")
     text_content = render_email_template(email, "email_template.text.j2")

@@ -1,8 +1,10 @@
 import logging
+
 logging.basicConfig(level=logging.INFO)
 from colorama import Fore
 from app.core.logger import logger
 from app.models.states import RSSState
+
 
 def output_node(state: RSSState) -> RSSState:
     logger.info("📄 Affichage des résultats finaux")

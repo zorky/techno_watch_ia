@@ -1,4 +1,5 @@
 import logging
+
 logging.basicConfig(level=logging.INFO)
 
 from sentence_transformers import SentenceTransformer
@@ -15,12 +16,15 @@ from app.core.utils import get_environment_variable
 # =========================
 
 LLM_MODEL = get_environment_variable("LLM_MODEL", "mistral")
-LLM_API = get_environment_variable("OLLAMA_BASE_URL", "http://localhost:11434/v1")  # si ChatOpenAI
+LLM_API = get_environment_variable(
+    "OLLAMA_BASE_URL", "http://localhost:11434/v1"
+)  # si ChatOpenAI
 # LLM_API = get_environment_variable("OLLAMA_BASE_URL", "http://localhost:11434")  # si ChatOllama
 LLM_TEMPERATURE = float(get_environment_variable("LLM_TEMPERATURE", "0.3"))
 
 TOP_P = float(get_environment_variable("TOP_P", "0.5"))
 MAX_TOKENS_GENERATE = int(get_environment_variable("MAX_TOKENS_GENERATE", "300"))
+
 
 # =========================
 # Configuration LLM local / saas
@@ -46,11 +50,13 @@ def init_llm_chat():
     #     # num_predict=MAX_TOKENS,
     # )
 
+
 # =========================
 # Configuration du modèle d'embeddings
 # Modèles disponibles et spécs :
 # https://www.sbert.net/docs/sentence_transformer/pretrained_models.html
 # =========================
+
 
 def get_device_cpu_gpu_info():
     import torch
@@ -62,6 +68,7 @@ def get_device_cpu_gpu_info():
     logger.info(Fore.YELLOW + "Aucun GPU disponible, utilisation du CPU.")
     return "cpu"
 
+
 def init_sentence_model():
     MODEL_EMBEDDINGS = get_environment_variable("MODEL_EMBEDDINGS")
     DEVICE_TYPE = get_device_cpu_gpu_info()
@@ -72,9 +79,11 @@ def init_sentence_model():
     # return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=DEVICE_TYPE)  # bon compromis pour le français/anglais
     # return SentenceTransformer('multi-qa-MiniLM-L6-cos-v1', device=DEVICE_TYPE)  # Optimisé pour la similarité
 
+
 # =========================
 # Le prompt pour le résumé à réaliser
 # =========================
+
 
 def set_prompt(theme, title, content):
     prompt = f"""Tu es un expert en {theme}. Résume **uniquement** l'article ci-dessous en **3 phrases maximales**, en français, avec :

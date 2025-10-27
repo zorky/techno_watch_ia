@@ -1,5 +1,6 @@
 import os
 import logging
+
 logging.basicConfig(level=logging.INFO)
 from colorama import Fore
 
@@ -9,7 +10,10 @@ from app.core.utils import measure_time, get_environment_variable
 from app.core.logger import count_by_type_articles
 from app.services.model_service import init_sentence_model
 
-THRESHOLD_SEMANTIC_SEARCH = float(get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5"))
+THRESHOLD_SEMANTIC_SEARCH = float(
+    get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5")
+)
+
 
 @measure_time
 def _filter_articles_with_faiss(
@@ -27,7 +31,7 @@ def _filter_articles_with_faiss(
     :return: Articles filtrés
     """
     import faiss
-    
+
     model = init_sentence_model()
 
     logger.info(f"Filtrage sémantique avec les mots-clés {keywords}")
@@ -84,9 +88,12 @@ def _filter_articles_with_faiss(
             # )
             logger.info(
                 f"✅ Article retenu (sim={max_similarity:.2f}, mots-clés: {matched_keywords}): {article['title']} {article['link']}"
-            )            
+            )
             article["score"] = f"{max_similarity * 100:.1f}"
-            logger.info(Fore.CYAN + f"{article['title']} {article['source']} -> {article['score']}")            
+            logger.info(
+                Fore.CYAN
+                + f"{article['title']} {article['source']} -> {article['score']}"
+            )
             filtered.append(article)
 
     logger.info(
@@ -94,14 +101,14 @@ def _filter_articles_with_faiss(
     )
     return filtered
 
+
 def filter_node(state: UnifiedState) -> UnifiedState:
-    
     logger.info("🔍 Filtrage des articles par mots-clés...")
 
     filtered = _filter_articles_with_faiss(
         state.articles, state.keywords, threshold=THRESHOLD_SEMANTIC_SEARCH
     )
     logger.info(f"{len(filtered)} articles correspondent aux mots-clés (sémantique)")
-    count_by_type_articles("Nombre d'articles filtrés par sources", filtered) # OK
+    count_by_type_articles("Nombre d'articles filtrés par sources", filtered)  # OK
 
     return state.model_copy(update={"filtered_articles": filtered})

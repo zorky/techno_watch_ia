@@ -22,43 +22,53 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 Base = declarative_base()
+
+
 #
 # Modèles
 # /!\ Après le declarative_base()
 #
 class Article(Base):
     """Modèle entité BDD"""
-    __tablename__ = 'articles'
+
+    __tablename__ = "articles"
     id = Column(Integer, primary_key=True)
-    dt_created = Column(DateTime, 
-                        server_default=func.now(),
-                        default=lambda: datetime.now(timezone.utc),
-                        nullable=False, 
-                        index=True)
-    dt_updated = Column(DateTime, 
-                        onupdate=lambda: datetime.now(timezone.utc),  # Remplace utcnow()
-                        default=lambda: datetime.now(timezone.utc),
-                        nullable=False)
+    dt_created = Column(
+        DateTime,
+        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+    dt_updated = Column(
+        DateTime,
+        onupdate=lambda: datetime.now(timezone.utc),  # Remplace utcnow()
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
     title = Column(String, nullable=False)
     link = Column(String, nullable=False)
     summary = Column(Text, nullable=False)
     score = Column(String, nullable=False)
-    published = Column(String, nullable=False, index=True)    
+    published = Column(String, nullable=False, index=True)
     source = Column(
         SQLAlchemyEnum(SourceType),
         nullable=False,
         default=SourceType.RSS,  # Optionnel : valeur par défaut
-        index=True  # Optionnel : index pour les requêtes
+        index=True,  # Optionnel : index pour les requêtes
     )
 
+
 # Evènement pour màj de dt_updated - /!\ après la déclaration du modèle
-@event.listens_for(Article, 'before_update')
-def update_timestamp(mapper, connection, target):    
+@event.listens_for(Article, "before_update")
+def update_timestamp(mapper, connection, target):
     target.dt_updated = datetime.now(timezone.utc)
+
 
 class ArticleFTS:
     """Modèle pour la table FTS5 Full Text Search"""
-    __tablename__ = 'articles_fts'
+
+    __tablename__ = "articles_fts"
 
     @classmethod
     def execute_statement(cls, conn, statement):
@@ -68,17 +78,19 @@ class ArticleFTS:
     @classmethod
     def create_trigger_if_not_exists(cls, conn, trigger_name, trigger_sql):
         # Vérifier si le trigger existe déjà
-        result = conn.execute(text(f"""
+        result = conn.execute(
+            text(f"""
             SELECT name FROM sqlite_master
             WHERE type='trigger' AND name='{trigger_name}'
-        """)).fetchone()
+        """)
+        ).fetchone()
 
         if not result:
             conn.execute(text(trigger_sql))
             conn.commit()
 
     @classmethod
-    def init_table(cls, engine):                
+    def init_table(cls, engine):
         """Crée la table FTS5 manuellement."""
         triggers = {
             "sync_article_fts": f"""
@@ -101,11 +113,13 @@ class ArticleFTS:
                 BEGIN
                     DELETE FROM {cls.__tablename__} WHERE article_id = old.id;
                 END;
-            """
-        }        
-        
-        with engine.connect() as conn:        
-            cls.execute_statement(conn, text(f"""                
+            """,
+        }
+
+        with engine.connect() as conn:
+            cls.execute_statement(
+                conn,
+                text(f"""                
                 CREATE VIRTUAL TABLE IF NOT EXISTS {cls.__tablename__} USING fts5(
                     article_id,
                     title,
@@ -113,9 +127,10 @@ class ArticleFTS:
                     tokenize='unicode61',
                     prefix='2,3'
                 );                                               
-                """))
+                """),
+            )
             for name, sql in triggers.items():
-                cls.create_trigger_if_not_exists(conn, name, sql)            
+                cls.create_trigger_if_not_exists(conn, name, sql)
 
     @classmethod
     def insert(cls, session, title, content, published):
@@ -125,7 +140,7 @@ class ArticleFTS:
             INSERT OR IGNORE INTO {cls.__tablename__} (title, content, published)
             VALUES (:title, :content, :published)
             """),
-            {'title': title, 'content': content, 'published': published}
+            {"title": title, "content": content, "published": published},
         )
 
     @classmethod
@@ -137,7 +152,7 @@ class ArticleFTS:
             INSERT OR IGNORE INTO {cls.__tablename__} (title, content, published)
             VALUES (:title, :content, :published)
             """),
-            articles  # Liste de dicts [{'title': '...', 'content': '...', 'published': '...'}, ...]
+            articles,  # Liste de dicts [{'title': '...', 'content': '...', 'published': '...'}, ...]
         )
 
     @classmethod
@@ -158,8 +173,8 @@ class ArticleFTS:
         """
         # Les indices des 2 champs hightlights de la table articles_fts
         IDX_TITLE_TABLE = 1
-        IDX_CONTENT_TABLE = 2        
-        
+        IDX_CONTENT_TABLE = 2
+
         # Base SQL pour le CTE
         base_sql = f"""
             WITH ranked AS (
@@ -196,7 +211,7 @@ class ArticleFTS:
             FROM ranked
             JOIN {Article.__tablename__} a on a.id = ranked.article_id
         """
-        
+
         if where_clauses:
             base_sql += "    WHERE " + " AND ".join(where_clauses)
             logger.info(f"where {base_sql}")
@@ -207,12 +222,12 @@ class ArticleFTS:
         """
 
         logger.info(f"SQL exécuté: {base_sql} avec {params}")
-        
+
         results = session.execute(text(base_sql), params)
         results_as_dict = results.mappings().all()
 
         logger.debug(f"results : {results_as_dict}")
-        
+
         return results_as_dict
         # return results.fetchall()
 
@@ -274,15 +289,19 @@ class ArticleFTS:
         logger.debug(f"SQL exécuté: {base_sql} avec {params}")
         return session.execute(text(base_sql), params).fetchall()
 
+
 #
 # Configuration SQL Alchemy
-# 
-SQLALCHEMY_DB = f'sqlite:///{DB_PATH}'
+#
+SQLALCHEMY_DB = f"sqlite:///{DB_PATH}"
 engine = create_engine(
     SQLALCHEMY_DB,
-    connect_args={"check_same_thread": False},  # Nécessaire pour SQLite avec FastAPI et le multi-threads
-    echo=True  # Affiche les requêtes SQL (optionnel, pour le debug))
+    connect_args={
+        "check_same_thread": False
+    },  # Nécessaire pour SQLite avec FastAPI et le multi-threads
+    echo=True,  # Affiche les requêtes SQL (optionnel, pour le debug))
 )
+
 
 def init_db():
     """Initialise la base de données SQLite."""
@@ -290,11 +309,13 @@ def init_db():
     ArticleFTS.init_table(engine)
     print("Table 'articles' initialisée avec succès !")
 
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 #
 # Fonctions utilitaires DB
-# 
+#
 @contextmanager
 def get_db():
     """Générateur de session SQLAlchemy avec gestion automatique pour le close()."""
@@ -304,25 +325,28 @@ def get_db():
     finally:
         session.close()
 
+
 def read_articles(date: str = None):
-    """Lit les articles résumés qui ont été retenus pour la veille techno"""     
+    """Lit les articles résumés qui ont été retenus pour la veille techno"""
     with get_db() as session:
         if date:
-            articles = session.query(Article).filter(Article.published.like(f"%{date}%")).all()
+            articles = (
+                session.query(Article).filter(Article.published.like(f"%{date}%")).all()
+            )
         else:
             articles = session.query(Article).order_by(Article.published.desc()).all()
     return articles
+
 
 def _validate_and_get_articles_summaries(summaries):
     for item in summaries:
         logging.info(f"** item summaries : {item}\n")
 
     validated_articles = [ArticleModel(**item) for item in summaries]
-    articles_data = [
-        article.model_dump() for article in validated_articles
-    ]  
+    articles_data = [article.model_dump() for article in validated_articles]
     logger.info(f"Articles validés pour insertion: {articles_data}")
     return articles_data
+
 
 def save_to_db(summaries: list[dict]):
     """
@@ -335,23 +359,25 @@ def save_to_db(summaries: list[dict]):
     Raises:
         ValueError: Si la validation Pydantic échoue
         Exception: Pour les erreurs de base de données
-    """    
-    with get_db() as session:        
-        try:            
+    """
+    with get_db() as session:
+        try:
             existing = session.query(Article.title, Article.published).all()
             existing_pairs = {(title, published) for title, published in existing}
             new_articles = [
-                item for item in summaries
+                item
+                for item in summaries
                 if (item["title"], item["published"]) not in existing_pairs
             ]
             if new_articles:
-                logger.info(f"Nombre de nouveaux articles {len(new_articles)}")            
-                articles_data = _validate_and_get_articles_summaries(new_articles)  
+                logger.info(f"Nombre de nouveaux articles {len(new_articles)}")
+                articles_data = _validate_and_get_articles_summaries(new_articles)
                 session.bulk_insert_mappings(Article, articles_data)
-                session.commit()                      
+                session.commit()
         except Exception as e:
             session.rollback()
-            raise e            
+            raise e
+
 
 def search_fts(keywords: str):
     with get_db() as session:
@@ -361,17 +387,17 @@ def search_fts(keywords: str):
 
         # Recherche avec filtre date
         result2 = ArticleFTS.search(
-            session,
-            "cybersécurité",
-            date_min="2025-01-01",
-            date_max="2025-12-31"
+            session, "cybersécurité", date_min="2025-01-01", date_max="2025-12-31"
         )
         logger.info(f"Résultats FTS: {result2}")
 
         # Recherche depuis une date
-        result3 = ArticleFTS.search(session, keywords or "docker", date_min="2025-09-01")
+        result3 = ArticleFTS.search(
+            session, keywords or "docker", date_min="2025-09-01"
+        )
         logger.info(f"Résultats FTS: {result3}")
 
-if __name__ == "__main__":    
-    articles = read_articles()    
+
+if __name__ == "__main__":
+    articles = read_articles()
     print(f"Nombre d'articles en base: {len(articles)}")

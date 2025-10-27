@@ -1,6 +1,7 @@
 import feedparser
 from datetime import datetime, timedelta
 import logging
+
 logging.basicConfig(level=logging.INFO)
 
 from app.core.logger import logger, Fore
@@ -11,8 +12,9 @@ from app.services.fetchers.base_fetcher import BaseFetcher
 from app.services.models import Source, SourceType
 from app.core.logger import print_color
 
+
 @fetcher_class
-class RSSFetcher(BaseFetcher):    
+class RSSFetcher(BaseFetcher):
     source_type = SourceType.RSS.value
     env_flag = "RSS_FETCH"
 
@@ -28,15 +30,18 @@ class RSSFetcher(BaseFetcher):
         if "content" in entry.keys():
             content: list[feedparser.FeedParserDict] = entry.get("content", [dict])
             return content[0].get("value", "Pas de résumé")
-        
+
         return entry.get("summary", "Pas de résumé")
 
     def strip_html(self, text: str) -> str:
         """Supprime les balises HTML d'un texte pour n'avoir que du texte brut."""
         from bs4 import BeautifulSoup
+
         return BeautifulSoup(text, "html.parser").get_text()
-    
-    def add_article_with_entry_syndication(self, entry, articles, cutoff_date, recent_in_feed):
+
+    def add_article_with_entry_syndication(
+        self, entry, articles, cutoff_date, recent_in_feed
+    ):
         """
         A partir du contenu d'une entrée entry, ajoute un article récent à la liste des articles à traiter.
 
@@ -84,16 +89,18 @@ class RSSFetcher(BaseFetcher):
             recent_in_feed += 1
         return recent_in_feed
 
-
     @measure_time
     def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
-        """Votre logique RSS existante"""        
+        """Votre logique RSS existante"""
         AGENT = "ReaderRSS/1.0"
         RESOLVE_RELATIVE_URIS = False
         SANITIZE_HTML = True
         articles = []
         cutoff_date = datetime.now() - timedelta(days=max_days)
-        logger.info(Fore.BLUE + f"Fetch posts RSS du flux {source.url} depuis la date : depuis {max_days} jours -> {cutoff_date}")
+        logger.info(
+            Fore.BLUE
+            + f"Fetch posts RSS du flux {source.url} depuis la date : depuis {max_days} jours -> {cutoff_date}"
+        )
         color = Fore.LIGHTBLUE_EX
         print_color(color, "=" * 60)
         print_color(color, f"RSS Fetcher fetch_articles {source.url}")
@@ -118,4 +125,3 @@ class RSSFetcher(BaseFetcher):
 
         logger.debug(Fore.CYAN + f"{len(articles)} articles récents récupérés")
         return articles
-    

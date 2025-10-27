@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel
 
 import logging
+
 logging.basicConfig(level=logging.INFO)
 
 from app.core.logger import logger, Fore
@@ -26,7 +27,8 @@ from app.core.logger import print_color
 #     reposts: int
 #     replies: int
 #     score: str
-    
+
+
 @fetcher_class
 class BlueskyFetcher(BaseFetcher):
     source_type = SourceType.BLUESKY.value
@@ -41,6 +43,7 @@ class BlueskyFetcher(BaseFetcher):
             password: Votre mot de passe/app password (optionnel pour lecture publique)
         """
         from atproto import Client
+
         self.base_url = "https://bsky.social"
         self.session = None
         self.handle = handle
@@ -48,29 +51,26 @@ class BlueskyFetcher(BaseFetcher):
         self.AGENT = "TechnoWatch/1.0"
 
         # Headers pour les requêtes
-        self.headers = {
-            "Content-Type": "application/json",
-            "User-Agent": self.AGENT
-        }
+        self.headers = {"Content-Type": "application/json", "User-Agent": self.AGENT}
         self.client = Client()
-        self.client.login(self.handle, self.password)        
-    
+        self.client.login(self.handle, self.password)
+
     @measure_time
     def fetch_articles(self, source: Source, max_days: int) -> list[dict]:
         """
         Récupère les posts d'un utilisateur Bluesky ou du feed public
-        
+
         source.url peut être :
-        - Un handle utilisateur : "@user.bsky.social" 
+        - Un handle utilisateur : "@user.bsky.social"
         - Un DID : "did:plc:..."
         - "firehose" pour le feed public général
-        """                
+        """
         color = Fore.LIGHTMAGENTA_EX
         print_color(color, "=" * 60)
         print_color(color, f"BLUESKY Fetcher fetch_articles {source.url}")
         print_color(color, "=" * 60)
-        
-        articles = []        
+
+        articles = []
 
         try:
             if source.url == "firehose" or source.url.startswith("firehose"):
@@ -78,7 +78,7 @@ class BlueskyFetcher(BaseFetcher):
                 # articles = self._fetch_public_feed(session, max_days)
                 ...
             elif source.url.startswith("@") or source.url.startswith("did:"):
-                # Posts d'un utilisateur spécifique                
+                # Posts d'un utilisateur spécifique
                 articles = self._fetch_user_posts(source.url, max_days)
                 ...
             elif "bsky.app/profile/" in source.url:
@@ -88,13 +88,15 @@ class BlueskyFetcher(BaseFetcher):
                 ...
             else:
                 logger.error(f"Format d'URL Bluesky non supporté: {source.url}")
-            
+
         except Exception as e:
             logger.error(f"Erreur lors de la récupération Bluesky: {e}")
 
         return articles
-    
-    def _fetch_public_feed(self, session: aiohttp.ClientSession, max_days: int) -> list[dict]:
+
+    def _fetch_public_feed(
+        self, session: aiohttp.ClientSession, max_days: int
+    ) -> list[dict]:
         """
         Récupère le feed public Bluesky
         """
@@ -103,80 +105,88 @@ class BlueskyFetcher(BaseFetcher):
         LIMIT = 10
         # Utilise l'endpoint public feed
         url = f"{self.base_url}/xrpc/app.bsky.feed.getTimeline"
-        params = {
-            "algorithm": "reverse-chronological",
-            "limit": LIMIT
-        }
-        
+        params = {"algorithm": "reverse-chronological", "limit": LIMIT}
+
         with session.get(url, headers=self.headers, params=params) as response:
             if response.status == 200:
                 data = response.json()
                 feed_items = data.get("feed", [])
-                
+
                 for item in feed_items:
                     post = item.get("post", {})
                     record = post.get("record", {})
-                    
+
                     # Filtrage par date
                     created_at = record.get("createdAt")
                     if created_at:
-                        post_date = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                        post_date = datetime.fromisoformat(
+                            created_at.replace("Z", "+00:00")
+                        )
                         if post_date.replace(tzinfo=None) > cutoff_date:
                             articles.append(self._format_bluesky_post(post, item))
-            
+
             else:
                 print(f"Erreur API Bluesky public feed: {response.status}")
-        
+
         return articles
-    
+
     def _fetch_user_posts(self, user_identifier: str, max_days: int) -> list[dict]:
         """
         Récupère les posts d'un utilisateur spécifique
-        """        
+        """
         articles = []
         cutoff_date = datetime.now() - timedelta(days=max_days)
-        
+
         # Nettoie l'identifiant utilisateur
         if user_identifier.startswith("@"):
             user_identifier = user_identifier[1:]
-        
+
         # logger.info(Fore.GREEN + f"posts user_identifier {user_identifier}")
 
-        data = self.client.get_author_feed(actor=user_identifier, limit=10, filter='posts_no_replies')
+        data = self.client.get_author_feed(
+            actor=user_identifier, limit=10, filter="posts_no_replies"
+        )
 
-        feed_items: list = data.feed 
-        logger.info(Fore.CYAN + f"posts de {user_identifier}")        
+        feed_items: list = data.feed
+        logger.info(Fore.CYAN + f"posts de {user_identifier}")
         logger.debug(Fore.CYAN + f"{len(feed_items)}")
         for feed in feed_items:
             post = feed.post
             record = post.record
             created_at = record.created_at
-            logger.debug(Fore.LIGHTMAGENTA_EX + f"\tpost : {post.author} {created_at}\n")
-            
+            logger.debug(
+                Fore.LIGHTMAGENTA_EX + f"\tpost : {post.author} {created_at}\n"
+            )
+
             if created_at:
                 post_date = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
                 if post_date.replace(tzinfo=None) > cutoff_date:
-                    logger.debug(Fore.LIGHTBLUE_EX + f"\t {type(record)} record : {record}\n")
-                    logger.debug(Fore.LIGHTBLUE_EX + f"\t record : {record.text} le {created_at}\n")
+                    logger.debug(
+                        Fore.LIGHTBLUE_EX + f"\t {type(record)} record : {record}\n"
+                    )
+                    logger.debug(
+                        Fore.LIGHTBLUE_EX
+                        + f"\t record : {record.text} le {created_at}\n"
+                    )
                     logger.debug(Fore.LIGHTGREEN_EX + f"\tembed : {record.embed}\n")
-                    formatted_post = self._format_bluesky_post(post, feed)                    
+                    formatted_post = self._format_bluesky_post(post, feed)
                     articles.append(formatted_post)
-        
+
         # for article in articles:
         #     logger.info(Fore.LIGHTGREEN_EX + f"ARTICLE : {article}")
 
         return articles
-    
+
     def _format_bluesky_post(self, post, feed_item: dict) -> dict:
         """
         Formate un post Bluesky au format unifié
         """
         record = post.record
         author = post.author
-        
+
         # Contenu principal
         text = record.text
-        
+
         # Gestion des liens/embeds
         embed = record.embed
         if embed:
@@ -194,12 +204,12 @@ class BlueskyFetcher(BaseFetcher):
                     for img in images[:3]:  # Max 3 descriptions
                         if img.alt:
                             text += f"\n- {img.alt}"
-        
+
         # Gestion des réponses/citations
         reply = record.reply
         if reply and reply.parent:
             text = f"↳ Réponse à un post\n\n{text}"
-        
+
         # Construction de l'URL
         post_uri = post.uri
         at_url = ""
@@ -210,7 +220,7 @@ class BlueskyFetcher(BaseFetcher):
                 did, collection, rkey = parts[0], parts[1], parts[2]
                 handle = author.handle or did
                 at_url = f"https://bsky.app/profile/{handle}/post/{rkey}"
-        
+
         """
         {
                     "title": title,
@@ -223,12 +233,17 @@ class BlueskyFetcher(BaseFetcher):
         """
         # format created_at : 2025-09-23T15:31:04.446738146Z
         logger.debug(Fore.RED + f"record created_at {record.created_at}")
-                
-        published_parsed = datetime.fromisoformat(record.created_at.replace('Z', '+00:00')).timetuple()     
-        logger.debug(Fore.RED + f"{published_parsed}")           
+
+        published_parsed = datetime.fromisoformat(
+            record.created_at.replace("Z", "+00:00")
+        ).timetuple()
+        logger.debug(Fore.RED + f"{published_parsed}")
         published = datetime(*published_parsed[:6])
-          
-        logger.debug(Fore.LIGHTYELLOW_EX + f"{record.created_at} -> {published} - {published.isoformat()}")     
+
+        logger.debug(
+            Fore.LIGHTYELLOW_EX
+            + f"{record.created_at} -> {published} - {published.isoformat()}"
+        )
         # article = ArticleBluesky(
         #     title=text[:100] + "..." if len(text) > 100 else text,
         #     summary=text,
@@ -242,18 +257,20 @@ class BlueskyFetcher(BaseFetcher):
         #     reposts=post.repost_count or 0,
         #     replies=post.reply_count or 0,
         #     score="0 %",
-        #     )        
+        #     )
         return {
-            'title': text[:100] + "..." if len(text) > 100 else text,  # Titre = début du texte            
-            'summary': text,
-            'link': at_url,
-            'published': published.isoformat(),
-            'source_type': "bluesky",
-            'source_name': f"@{author.handle or 'unknown'}",
-            'author': author.display_name or (author.handle or "Unknown"),
-            'likes': post.like_count or 0,
-            'reposts': post.repost_count or 0,
-            'replies': post.reply_count or 0,
-            'score': "0 %",
-            'source': SourceType.BLUESKY
+            "title": text[:100] + "..."
+            if len(text) > 100
+            else text,  # Titre = début du texte
+            "summary": text,
+            "link": at_url,
+            "published": published.isoformat(),
+            "source_type": "bluesky",
+            "source_name": f"@{author.handle or 'unknown'}",
+            "author": author.display_name or (author.handle or "Unknown"),
+            "likes": post.like_count or 0,
+            "reposts": post.repost_count or 0,
+            "replies": post.reply_count or 0,
+            "score": "0 %",
+            "source": SourceType.BLUESKY,
         }

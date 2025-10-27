@@ -1,7 +1,7 @@
-
 from functools import lru_cache
-from colorama import Fore 
+from colorama import Fore
 import logging
+
 logging.basicConfig(level=logging.INFO)
 
 from app.core.logger import logger
@@ -10,8 +10,14 @@ from app.services.models import Source, SourceType
 
 MAX_DAYS = int(get_environment_variable("MAX_DAYS", "10"))
 
-__all__ = ["register_fetchers","fetch_articles",            
-           "get_rss_urls", "get_subs_reddit_urls", "get_bluesky_urls"]
+__all__ = [
+    "register_fetchers",
+    "fetch_articles",
+    "get_rss_urls",
+    "get_subs_reddit_urls",
+    "get_bluesky_urls",
+]
+
 
 def register_fetchers():
     from app.services.factory_fetcher import FetcherFactory
@@ -24,6 +30,7 @@ def register_fetchers():
     FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
     FetcherFactory.register_fetcher(SourceType.BLUESKY, BlueskyFetcher)
 
+
 def get_rss_urls():
     """
     Obtient la liste des URL RSS à traiter à partir des variables d'environnement.
@@ -31,6 +38,7 @@ def get_rss_urls():
     """
     from app.read_opml import parse_opml_to_rss_list
     from app.services.models import Source, SourceType
+
     OPML_FILE = get_environment_variable("OPML_FILE", "my.opml")
 
     logger.info("Obtention des URL RSS à traiter...")
@@ -47,10 +55,11 @@ def get_rss_urls():
         )
     ]
 
+
 def fetch_articles(fetcher, sources_urls):
     all_articles = []
     for source in sources_urls:
-        try:                
+        try:
             articles = fetcher.fetch_articles(source, max_days=MAX_DAYS)
             all_articles.extend(articles)
             logger.info(
@@ -60,12 +69,14 @@ def fetch_articles(fetcher, sources_urls):
             logger.error(f"Error fetching from {source.url}: {e}")
     return all_articles
 
+
 @lru_cache(maxsize=1)
 def _load_json_reddit_bluesky(config_path):
     import json
-    
-    with open(config_path, 'r') as f:
-        return json.load(f)    
+
+    with open(config_path, "r") as f:
+        return json.load(f)
+
 
 # def load_sources_from_config(config_path: str, type_source: SourceType) -> list[Source]:
 def _load_sources_from_config(config_path: str, type_source: str) -> list[Source]:
@@ -74,7 +85,7 @@ def _load_sources_from_config(config_path: str, type_source: str) -> list[Source
     Exemple de structure :
     REDDIT
     {
-        "sources": [            
+        "sources": [
             {
                 "type": "reddit",
                 "subreddit": "MachineLearning",
@@ -90,46 +101,52 @@ def _load_sources_from_config(config_path: str, type_source: str) -> list[Source
                 "type": "bluesky",
                 "url": "@user.bsky.social",
                 "name": "Tech Expert"
-            },            
+            },
         ]
     }
     """
-    
+
     config = _load_json_reddit_bluesky(config_path)
-    
+
     logger.info(Fore.LIGHTRED_EX + f"filter sources Reddit ou Bluesky : {type_source}")
     sources = []
-    for source_config in config.get('sources', []):        
-        if type_source == 'reddit':
-            sources.append(Source(
-                type=SourceType.REDDIT,
-                url=f"reddit.com/r/{source_config['subreddit']}",
-                name=source_config.get('name'),
-                subreddit=source_config['subreddit'],
-                sort_by=source_config.get('sort_by', 'hot'),
-                time_filter=source_config.get('time_filter', 'day')
-            ))     
-        if type_source == 'bluesky':
-            sources.append(Source(
-                type=SourceType.BLUESKY,
-                url=source_config['url'],
-                name=source_config.get('name')
-            ))    
+    for source_config in config.get("sources", []):
+        if type_source == "reddit":
+            sources.append(
+                Source(
+                    type=SourceType.REDDIT,
+                    url=f"reddit.com/r/{source_config['subreddit']}",
+                    name=source_config.get("name"),
+                    subreddit=source_config["subreddit"],
+                    sort_by=source_config.get("sort_by", "hot"),
+                    time_filter=source_config.get("time_filter", "day"),
+                )
+            )
+        if type_source == "bluesky":
+            sources.append(
+                Source(
+                    type=SourceType.BLUESKY,
+                    url=source_config["url"],
+                    name=source_config.get("name"),
+                )
+            )
 
     return sources
+
 
 def get_subs_reddit_urls():
     """
     Obtient la liste des URL Reddit à traiter à partir du fichier myreddit.json
-    """    
-    MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")    
+    """
+    MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")
     return _load_sources_from_config(MY_REDDIT_FILE, SourceType.REDDIT.value)
     # return _load_sources_from_config(MY_REDDIT_FILE, "reddit")
+
 
 def get_bluesky_urls():
     """
     Obtient la liste des URL Bluesky à traiter à partir du fichier myreddit.json
-    """    
-    BLUESKY_FILE = get_environment_variable("BLUESKY_FILE", "mybluesky.json")    
+    """
+    BLUESKY_FILE = get_environment_variable("BLUESKY_FILE", "mybluesky.json")
     # return _load_sources_from_config(BLUESKY_FILE, "bluesky")
     return _load_sources_from_config(BLUESKY_FILE, SourceType.BLUESKY.value)
