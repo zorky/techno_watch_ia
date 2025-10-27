@@ -1,9 +1,10 @@
 services:
-  techno-watch-ia:
+  app:
     build:
       context: .
       dockerfile: docker/Dockerfile.app
+    image: techno-watch-ia:latest
     env_file:
       - .env
-    # volumes:
-    #   - ./results:/app/results
+    volumes:
+      - ./data:/app/data

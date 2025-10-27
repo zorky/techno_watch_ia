@@ -1,33 +1,42 @@
 # Dockerfile pour l'application CLI techno_watch_ia
-# docker build -f docker/Dockerfile.app -t techno-watch-ia:latest .
+# par le cli docker : docker build -f docker/Dockerfile.app -t techno-watch-ia:latest .
+# par le compose : docker compose -f techno-watch.yml build
+# run par le cli :
 # docker run --env-file .env techno-watch-ia:latest
-FROM python:3.11-slim
+# docker run --env-file .env -v $(pwd)/data:/app/data -w /app techno-watch-ia:latest
+# run par le compose :
+# docker compose -f techno-watch.yml run app
 
-# Variables d'environnement pour Python
+FROM python:3.11-slim AS builder
+
+# Variables d'environnement pour Python et uv
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    # Configuration uv
     UV_SYSTEM_PYTHON=1
 
-# Installation de uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Répertoire de travail
 WORKDIR /app
 
-# Copie des fichiers de dépendances
-COPY pyproject.toml ./
-COPY uv.lock* ./
+COPY pyproject.toml uv.lock* ./
 
-# Installation des dépendances avec uv
 RUN uv sync --frozen --no-dev
 
-# Copie du code source
-COPY app/ ./app/
-# COPY tests/ ./tests/
+# Stage 2: Runtime
+FROM python:3.11-slim
 
-# Point d'entrée pour lancer l'application
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+
+COPY --from=builder /app/.venv /app/.venv
+COPY app/ ./app/
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+VOLUME ["/app/data"]
+
 ENTRYPOINT ["python", "-m", "app"]
 
-# Arguments par défaut (peuvent être surchargés)
 CMD []
