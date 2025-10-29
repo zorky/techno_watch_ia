@@ -73,7 +73,7 @@ def fetch_articles(fetcher, sources_urls):
 @lru_cache(maxsize=1)
 def _load_json_reddit_bluesky(config_path):
     import json
-
+    logger.info(Fore.LIGHTMAGENTA_EX + f"Chargement du fichier de configuration : {config_path}")
     with open(config_path, "r") as f:
         return json.load(f)
 
@@ -138,15 +138,21 @@ def get_subs_reddit_urls():
     """
     Obtient la liste des URL Reddit à traiter à partir du fichier myreddit.json
     """
-    MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE", "myreddit.json")
+    MY_REDDIT_FILE = get_environment_variable("REDDIT_FILE",None)
+    if not MY_REDDIT_FILE:
+        logger.warning("Aucun fichier Reddit spécifié.")
+        raise ValueError("Aucun fichier Reddit spécifié.")
     return _load_sources_from_config(MY_REDDIT_FILE, SourceType.REDDIT.value)
     # return _load_sources_from_config(MY_REDDIT_FILE, "reddit")
 
 
 def get_bluesky_urls():
     """
-    Obtient la liste des URL Bluesky à traiter à partir du fichier myreddit.json
+    Obtient la liste des URL Bluesky à traiter à partir du fichier mybluesky.json
     """
-    BLUESKY_FILE = get_environment_variable("BLUESKY_FILE", "mybluesky.json")
-    # return _load_sources_from_config(BLUESKY_FILE, "bluesky")
+    BLUESKY_FILE = get_environment_variable("BLUESKY_FILE", None)
+    if not BLUESKY_FILE:
+        logger.warning("Aucun fichier Bluesky spécifié.")
+        raise ValueError("Aucun fichier Bluesky spécifié.")
+
     return _load_sources_from_config(BLUESKY_FILE, SourceType.BLUESKY.value)

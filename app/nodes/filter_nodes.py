@@ -13,14 +13,14 @@ from app.services.model_service import init_sentence_model
 THRESHOLD_SEMANTIC_SEARCH = float(
     get_environment_variable("THRESHOLD_SEMANTIC_SEARCH", "0.5")
 )
-
+FAISS_INDEX_PATH = get_environment_variable("FAISS_INDEX_PATH", "data/keywords_index.faiss")
 
 @measure_time
 def _filter_articles_with_faiss(
     articles,
     keywords: list[str],
     threshold=0.7,
-    index_path="keywords_index.faiss",
+    index_path=None,
     show_progress=False,
 ):
     """
@@ -31,6 +31,9 @@ def _filter_articles_with_faiss(
     :return: Articles filtrés
     """
     import faiss
+    
+    if not index_path:
+        index_path = FAISS_INDEX_PATH
 
     model = init_sentence_model()
 
