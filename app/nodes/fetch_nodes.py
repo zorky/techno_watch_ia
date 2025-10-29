@@ -78,7 +78,7 @@ def fetch_bluesky_node(state: UnifiedState) -> dict:
     logger.info(f"🔵 BLUESKY fetch START at {start}")
 
     sources_url = get_bluesky_urls()
-    logger.info(Fore.LIGHTGREEN_EX + f"sources Reddit : {sources_url}")
+    logger.info(Fore.LIGHTGREEN_EX + f"sources Bluesky : {sources_url}")
     all_articles = fetch_articles(fetcher_bluesky, sources_url)
 
     logger.info(
