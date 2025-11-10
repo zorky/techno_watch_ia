@@ -32,20 +32,18 @@ templates = Jinja2Templates(directory=TEMPLATES_WEB)
 register_jinja_filters(templates.env)
 
 @app.get("/")
-def read_articles(request: Request, date: str = None):
+async def read_articles(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
     from app.db import read_articles
     articles = read_articles(date)
     logger.debug(f"Articles lus: len({articles})")
-    # for article in articles:
-    #     logger.info(f"Article: {article.title} - {article.published} {article.source}")   
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "articles": articles}
     )
 
 @app.get("/search")
-def search_articles(
+async def search_articles(
     request: Request,
     q: str,
     date_min: Optional[str] = None,
