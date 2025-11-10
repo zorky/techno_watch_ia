@@ -35,7 +35,7 @@ register_jinja_filters(templates.env)
 async def read_articles(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
     from app.db import read_articles
-    articles = read_articles(date)
+    articles = await read_articles(date) 
     logger.debug(f"Articles lus: len({articles})")
     return templates.TemplateResponse(
         "index.html",

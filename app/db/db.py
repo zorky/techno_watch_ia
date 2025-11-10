@@ -1,13 +1,19 @@
 import os
 import logging
-from sqlalchemy import create_engine, text
-from sqlalchemy import Column, Integer, String, Text, DateTime, Index
+from sqlalchemy import create_engine, select, text
+from sqlalchemy import Column, Integer, String, Text, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import event
 from sqlalchemy import Enum as SQLAlchemyEnum
 from contextlib import contextmanager
+
+# async support
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from contextlib import asynccontextmanager
+
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 
@@ -17,12 +23,10 @@ from app.services.models import SourceType
 load_dotenv()
 DB_PATH = os.getenv("DB_PATH", "techno-watch.db")
 
-# from core import logger
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 Base = declarative_base()
-
 
 #
 # Modèles
@@ -292,6 +296,7 @@ class ArticleFTS:
 
 #
 # Configuration SQL Alchemy
+# sync et async
 #
 SQLALCHEMY_DB = f"sqlite:///{DB_PATH}"
 engine = create_engine(
@@ -301,7 +306,13 @@ engine = create_engine(
     },  # Nécessaire pour SQLite avec FastAPI et le multi-threads
     echo=True,  # Affiche les requêtes SQL (optionnel, pour le debug))
 )
-
+async_engine = create_async_engine(
+    SQLALCHEMY_DB.replace("sqlite:///", "sqlite+aiosqlite:///"),
+    connect_args={
+        "check_same_thread": False
+    },  # Nécessaire pour SQLite avec FastAPI et le multi-threads   
+    echo=True,  # Affiche les requêtes SQL (optionnel, pour le debug))
+)
 
 def init_db():
     """Initialise la base de données SQLite."""
@@ -312,9 +323,15 @@ def init_db():
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+AsyncSessionLocal = sessionmaker(
+    async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
 #
 # Fonctions utilitaires DB
+# sync et async
 #
 @contextmanager
 def get_db():
@@ -325,18 +342,26 @@ def get_db():
     finally:
         session.close()
 
+@asynccontextmanager
+async def get_db_async():
+    """Générateur de session SQLAlchemy asynchrone avec gestion automatique pour le close()."""
+    session = AsyncSessionLocal()
+    try:
+        yield session
+    finally:
+        await session.close()
 
-def read_articles(date: str = None):
+async def read_articles(date: str = None):
     """Lit les articles résumés qui ont été retenus pour la veille techno"""
-    with get_db() as session:
+    async with get_db_async() as session:
         if date:
-            articles = (
-                session.query(Article).filter(Article.published.like(f"%{date}%")).all()
-            )
+            stmt = select(Article).filter(Article.published.like(f"%{date}%"))
         else:
-            articles = session.query(Article).order_by(Article.published.desc()).all()
-    return articles
+            stmt = select(Article).order_by(Article.published.desc())
 
+        result = await session.execute(stmt)
+        articles = result.scalars().all()
+    return articles
 
 def _validate_and_get_articles_summaries(summaries):
     for item in summaries:
@@ -399,5 +424,5 @@ def search_fts(keywords: str):
 
 
 if __name__ == "__main__":
-    articles = read_articles()
+    articles =  read_articles()    
     print(f"Nombre d'articles en base: {len(articles)}")
