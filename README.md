@@ -168,3 +168,9 @@ Les branches doivent suivre le format :
 - `chore/` pour des tâches de maintenance.
 
 Exemple : `feat/implement-source-weights`
+
+## Performances tests K6
+
+voir [README](tests/k6/README.md)
+
+
