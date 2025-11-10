@@ -107,18 +107,6 @@ Se résume à un seul script à lancer
 $ python -m app [--debug]
 ```
 
-Ancienne version :
-
-```bash
-$ python main_agent.py
-```
-
-ou pour obtenir plus d'informations 
-
-```bash
-$ python main_agent.py --debug
-```
-
 ## Tests
 
 ```bash 
@@ -130,7 +118,13 @@ $ pytest tests/test_send_articles_email.py -v
 ## Interface UI pour les articles résumés
 
 ```bash
-$ uvicorn web:app --reload
+$ uvicorn web:app [--reload]
+```
+
+avec multi workers 
+
+```bash
+$ uvicorn web:app --workers 4 [--reload]
 ```
 
 Sur http://127.0.0.1:8000/

@@ -304,14 +304,14 @@ engine = create_engine(
     connect_args={
         "check_same_thread": False
     },  # Nécessaire pour SQLite avec FastAPI et le multi-threads
-    echo=True,  # Affiche les requêtes SQL (optionnel, pour le debug))
+    # echo=True,  # Affiche les requêtes SQL (optionnel, pour le debug))
 )
 async_engine = create_async_engine(
     SQLALCHEMY_DB.replace("sqlite:///", "sqlite+aiosqlite:///"),
     connect_args={
         "check_same_thread": False
     },  # Nécessaire pour SQLite avec FastAPI et le multi-threads   
-    echo=True,  # Affiche les requêtes SQL (optionnel, pour le debug))
+    # echo=True,  # Affiche les requêtes SQL (optionnel, pour le debug))    
 )
 
 def init_db():
@@ -351,7 +351,7 @@ async def get_db_async():
     finally:
         await session.close()
 
-async def read_articles(date: str = None):
+async def read_articles_async(date: str = None):
     """Lit les articles résumés qui ont été retenus pour la veille techno"""
     async with get_db_async() as session:
         if date:
@@ -360,6 +360,18 @@ async def read_articles(date: str = None):
             stmt = select(Article).order_by(Article.published.desc())
 
         result = await session.execute(stmt)
+        articles = result.scalars().all()
+    return articles
+
+def read_articles_sync(date: str = None):
+    """Lit les articles résumés qui ont été retenus pour la veille techno"""
+    with get_db() as session:
+        if date:
+            stmt = select(Article).filter(Article.published.like(f"%{date}%"))
+        else:
+            stmt = select(Article).order_by(Article.published.desc())
+
+        result = session.execute(stmt)
         articles = result.scalars().all()
     return articles
 
@@ -424,5 +436,5 @@ def search_fts(keywords: str):
 
 
 if __name__ == "__main__":
-    articles =  read_articles()    
+    articles =  read_articles_sync()    
     print(f"Nombre d'articles en base: {len(articles)}")

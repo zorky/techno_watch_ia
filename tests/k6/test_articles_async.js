@@ -17,7 +17,7 @@ export const options = {
 
 export default function () {
   // Test 1: Page principale (tous les articles)
-  let res = http.get('http://localhost:8000/');
+  let res = http.get('http://localhost:8000/async');
   check(res, {
     'status is 200': (r) => r.status === 200,
     'response time < 500ms': (r) => r.timings.duration < 500,
@@ -26,8 +26,8 @@ export default function () {
   sleep(1); // Pause de 1s entre les requêtes
 
   // Test 2: Filtrage par date
-  //   res = http.get('http://localhost:8000/?date=2024');
-  res = http.get('http://localhost:8000/?date=2025-10-29');
+  //   res = http.get('http://localhost:8000/async?date=2024');
+  res = http.get('http://localhost:8000/async?date=2025-10-29');
   check(res, {
     'status is 200': (r) => r.status === 200,
   });

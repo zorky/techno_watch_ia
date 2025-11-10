@@ -31,11 +31,22 @@ templates = Jinja2Templates(directory=TEMPLATES_WEB)
 
 register_jinja_filters(templates.env)
 
-@app.get("/")
-async def read_articles(request: Request, date: str = None):
+@app.get("/async")
+async def read_articles_async(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
-    from app.db import read_articles
-    articles = await read_articles(date) 
+    from app.db import read_articles_async
+    articles = await read_articles_async(date) 
+    logger.debug(f"Articles lus: len({articles})")
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "articles": articles}
+    )
+
+@app.get("/")
+def read_articles_sync(request: Request, date: str = None):
+    """Affiche les articles filtrés par date de publication."""
+    from app.db import read_articles_sync
+    articles = read_articles_sync(date) 
     logger.debug(f"Articles lus: len({articles})")
     return templates.TemplateResponse(
         "index.html",
