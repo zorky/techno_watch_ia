@@ -15,7 +15,7 @@ import logging
 
 from app.jinja_filters import register_jinja_filters
 from app.services.models import SourceType
-from app.db.db import ArticleFTS, get_db
+from app.db.db import ArticleFTS, get_db, get_db_async
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ templates = Jinja2Templates(directory=TEMPLATES_WEB)
 
 register_jinja_filters(templates.env)
 
-@app.get("/async")
+@app.get("/")
 async def read_articles_async(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
     from app.db import read_articles_async
@@ -42,7 +42,7 @@ async def read_articles_async(request: Request, date: str = None):
         {"request": request, "articles": articles}
     )
 
-@app.get("/")
+@app.get("/sync")
 def read_articles_sync(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
     from app.db import read_articles_sync
@@ -84,9 +84,9 @@ async def search_articles(
     except ValueError:
         return {"error": "Format de date invalide. Utilisez YYYY-MM-DD."}
 
-    with get_db() as session:
+    async with get_db_async() as session:
         # Appel de la recherche FTS
-        results = ArticleFTS.search(
+        results = await ArticleFTS.search(
             session=session,
             query=q,
             date_min=date_min,

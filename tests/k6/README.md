@@ -14,17 +14,21 @@ Tests K6 : ~/tests/k6
 Vérification installation :
 
 ```
-$ k6 run --vus 1 --duration 1s test_articles.js
+$ k6 run --vus 1 --duration 1s test_articles_async.js
+$ k6 run --vus 1 --duration 1s test_articles_sync.js
 ```
 
-Stress 
+**Stress tests** 
 
 ```
-$ k6 run --vus 50 --duration 30s test_articles.js
-$ k6 run --vus 50 --duration 30s --out json=results_async.json test_articles.js
+$ k6 run --vus 50 --duration 60s test_articles_async.js
+$ k6 run --vus 50 --duration 60s test_articles_sync.js
+$ k6 run --vus 50 --duration 60s --out json=results_async.json test_articles_async.js
+$ k6 run --vus 50 --duration 60s --out json=results_sync.json test_articles_sync.js
 ```
 
 ```
-$ k6 run --vus 50 --duration 30s test_articles.js > results_sync.txt 2>&1
+$ k6 run --vus 50 --duration 60s test_articles_async.js > results_async.txt 2>&1
+$ k6 run --vus 50 --duration 60s test_articles_sync.js > results_sync.txt 2>&1
 ```
 

@@ -160,7 +160,7 @@ class ArticleFTS:
         )
 
     @classmethod
-    def search(cls, session, query, date_min=None, date_max=None, limit=10):
+    async def search(cls, session, query, date_min=None, date_max=None, limit=10):
         """
         Recherche plein texte dans les articles avec filtre optionnel par date.
         avec score basé sur rank().
@@ -226,14 +226,13 @@ class ArticleFTS:
         """
 
         logger.info(f"SQL exécuté: {base_sql} avec {params}")
-
-        results = session.execute(text(base_sql), params)
+    
+        results = await session.execute(text(base_sql), params)
         results_as_dict = results.mappings().all()
 
         logger.debug(f"results : {results_as_dict}")
 
-        return results_as_dict
-        # return results.fetchall()
+        return results_as_dict        
 
     @classmethod
     def search_with_bm25(cls, session, query, date_min=None, date_max=None, limit=10):
