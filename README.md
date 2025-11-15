@@ -127,7 +127,7 @@ avec multi workers
 $ uvicorn web:app --workers 4 [--reload]
 ```
 
-Sur http://127.0.0.1:8000/
+L'application est accessible sur http://127.0.0.1:8000/
 
 ## L'automate exécuté 
 
