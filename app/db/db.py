@@ -300,6 +300,9 @@ class ArticleFTS:
 SQLALCHEMY_DB = f"sqlite:///{DB_PATH}"
 engine = create_engine(
     SQLALCHEMY_DB,
+    pool_size=20,           # Nombre de connexions par worker
+    max_overflow=10,        # Connexions supplémentaires si besoin
+    pool_pre_ping=True,     # Vérifier que la connexion est vivante
     connect_args={
         "check_same_thread": False
     },  # Nécessaire pour SQLite avec FastAPI et le multi-threads
@@ -307,6 +310,9 @@ engine = create_engine(
 )
 async_engine = create_async_engine(
     SQLALCHEMY_DB.replace("sqlite:///", "sqlite+aiosqlite:///"),
+    pool_size=20,           # Nombre de connexions par worker
+    max_overflow=10,        # Connexions supplémentaires si besoin
+    pool_pre_ping=True,     # Vérifier que la connexion est vivante
     connect_args={
         "check_same_thread": False
     },  # Nécessaire pour SQLite avec FastAPI et le multi-threads   

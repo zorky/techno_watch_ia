@@ -3,9 +3,13 @@ import sys
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 
-ASYNC_FILE = "results_async.json"
-SYNC_FILE = "results_sync.json"
+# ASYNC_FILE = "results_async.json"
+# SYNC_FILE = "results_sync.json"
+
+ASYNC_FILE = sys.argv[1] if len(sys.argv) > 1 else "results_async.json"
+SYNC_FILE = sys.argv[2] if len(sys.argv) > 2 else "results_sync.json"
 
 def parse_k6_json(filename):
     """Parse le fichier JSON de K6 et extrait toutes les métriques"""

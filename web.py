@@ -14,6 +14,7 @@ from typing import Optional
 
 import logging
 
+from add_latency import LatencySimulatorMiddleware
 from app.jinja_filters import register_jinja_filters
 from app.services.models import SourceType
 from app.db.db import ArticleFTS, get_db, get_db_async
@@ -28,6 +29,12 @@ TEMPLATES_WEB = "app/templates/web"
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=TEMPLATES_WEB), name="static")
+
+if os.getenv("TEST_PERFORMANCE", "false").lower() == "true":
+    logger.info("TEST_PERFORMANCE is true, adding LatencySimulatorMiddleware")
+    # ajoute une latence simulée pour les tests de charge réalistes en local
+    app.add_middleware(LatencySimulatorMiddleware)
+
 templates = Jinja2Templates(directory=TEMPLATES_WEB)
 
 register_jinja_filters(templates.env)
