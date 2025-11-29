@@ -23,12 +23,14 @@ $ k6 run --vus 1 --duration 1s test_articles_sync.js
 Lancer uvicorn avec 4 ou N workers (nproc pour 1 worker par CORE CPU), sans reload et avec un minimum de logs
 
 ```bash
-$ uvicorn web:app --workers 4 --log-level warning --no-access-log
+$ uvicorn web:app --workers $(nproc) --loop asyncio --log-level warning --no-access-log
 ```
 
 ```bash
-$ uvicorn web:app --workers $(nproc) --log-level warning --no-access-log
+$ uvicorn web:app --workers 4 --loop asyncio --log-level warning --no-access-log
 ```
+
+`--loop asyncio` dépend de l'environnement d'exécution, peut être optionnel (Windows, Mac, Linux)
 
 **Stress tests** 
 

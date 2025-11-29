@@ -33,6 +33,7 @@ dependencies = [
     "atproto>=0.0.62",
     "aiosqlite>=0.21.0",
     "pandas>=2.3.3",
+    "gunicorn>=23.0.0",
 ]
 
 [tool.uv.sources]

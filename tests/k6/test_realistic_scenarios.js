@@ -14,54 +14,54 @@ const BASE_URL = (__ENV.BASE_URL || 'http://localhost:8000') + BASE_PATH;
 
 const errorRate = new Rate('errors');
 
-export const options = commonOptions;
+// export const options = commonOptions;
 
-// export const options = {
-//   scenarios: {
-//     // Scénario 1: Trafic constant (utilisateurs normaux)
-//     constant_load: {
-//       executor: 'constant-vus',
-//       vus: 50,
-//       duration: '2m',
-//       startTime: '0s',
-//     },
+export const options = {
+  scenarios: {
+    // Scénario 1: Trafic constant (utilisateurs normaux)
+    constant_load: {
+      executor: 'constant-vus',
+      vus: 50,
+      duration: '2m',
+      startTime: '0s',
+    },
     
-//     // Scénario 2: Pic soudain (trafic viral, newsletter)
-//     spike: {
-//       executor: 'ramping-vus',
-//       startTime: '2m',
-//       stages: [
-//         { duration: '10s', target: 200 },  // Pic soudain
-//         { duration: '1m', target: 200 },   // Maintien
-//         { duration: '10s', target: 50 },   // Retour à la normale
-//       ],
-//     },
+    // Scénario 2: Pic soudain (trafic viral, newsletter, soldes)
+    spike: {
+      executor: 'ramping-vus',
+      startTime: '2m',
+      stages: [
+        { duration: '10s', target: 200 },  // Pic soudain
+        { duration: '1m', target: 200 },   // Maintien
+        { duration: '10s', target: 50 },   // Retour à la normale
+      ],
+    },
     
-//     // Scénario 3: Montée progressive (heure de pointe)
-//     gradual_ramp: {
-//       executor: 'ramping-arrival-rate',
-//       startTime: '3m10s',
-//       timeUnit: '1s',
-//       preAllocatedVUs: 100,
-//       maxVUs: 300,
-//       stages: [
-//         { duration: '1m', target: 10 },   // 10 req/s
-//         { duration: '1m', target: 50 },   // 50 req/s
-//         { duration: '1m', target: 100 },  // 100 req/s
-//         { duration: '1m', target: 50 },   // Retour
-//         { duration: '1m', target: 10 },   // Calm down
-//       ],
-//     },
-//   },
+    // Scénario 3: Montée progressive (heure de pointe)
+    gradual_ramp: {
+      executor: 'ramping-arrival-rate',
+      startTime: '3m10s',
+      timeUnit: '1s',
+      preAllocatedVUs: 100,
+      maxVUs: 300,
+      stages: [
+        { duration: '1m', target: 10 },   // 10 req/s
+        { duration: '1m', target: 50 },   // 50 req/s
+        { duration: '1m', target: 100 },  // 100 req/s
+        { duration: '1m', target: 50 },   // Retour
+        { duration: '1m', target: 10 },   // Calm down
+      ],
+    },
+  },
   
-//   thresholds: {
-//     http_req_duration: ['p(95)<500', 'p(99)<1000'],
-//     'http_req_duration{scenario:constant_load}': ['p(95)<300'],
-//     'http_req_duration{scenario:spike}': ['p(95)<800'],
-//     http_req_failed: ['rate<0.05'],  // 5% d'erreurs max
-//     errors: ['rate<0.05'],
-//   },
-// };
+  thresholds: {
+    http_req_duration: ['p(95)<500', 'p(99)<1000'],
+    'http_req_duration{scenario:constant_load}': ['p(95)<300'],
+    'http_req_duration{scenario:spike}': ['p(95)<800'],
+    http_req_failed: ['rate<0.05'],  // 5% d'erreurs max
+    errors: ['rate<0.05'],
+  },
+};
 
 export default function () {
   const responses = http.batch([

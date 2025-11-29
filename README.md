@@ -118,14 +118,16 @@ $ pytest tests/test_send_articles_email.py -v
 ## Interface UI pour les articles résumés
 
 ```bash
-$ uvicorn web:app [--reload]
+$ uvicorn web:app --loop asyncio [--reload]
 ```
 
 avec multi workers 
 
 ```bash
-$ uvicorn web:app --workers 4 [--reload]
+$ uvicorn web:app --workers $(nproc) --loop asyncio [--reload]
 ```
+
+`--loop asyncio` dépend de l'environnement d'exécution
 
 L'application est accessible sur http://127.0.0.1:8000/
 
