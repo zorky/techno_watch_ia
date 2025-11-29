@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi import Request
+from fastapi.concurrency import run_in_threadpool
 
 from dotenv import load_dotenv
 
@@ -13,9 +14,10 @@ from typing import Optional
 
 import logging
 
+from add_latency import LatencySimulatorMiddleware
 from app.jinja_filters import register_jinja_filters
 from app.services.models import SourceType
-from app.db.db import ArticleFTS, get_db
+from app.db.db import ArticleFTS, get_db, get_db_async
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,25 +29,42 @@ TEMPLATES_WEB = "app/templates/web"
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory=TEMPLATES_WEB), name="static")
+
+if os.getenv("TEST_PERFORMANCE", "false").lower() == "true":
+    logger.info("TEST_PERFORMANCE is true, adding LatencySimulatorMiddleware")
+    # ajoute une latence simulée pour les tests de charge réalistes en local
+    app.add_middleware(LatencySimulatorMiddleware)
+
 templates = Jinja2Templates(directory=TEMPLATES_WEB)
 
 register_jinja_filters(templates.env)
 
 @app.get("/")
-def read_articles(request: Request, date: str = None):
+async def read_articles_async(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
-    from app.db import read_articles
-    articles = read_articles(date)
+    from app.db import read_articles_async
+    # from app.db import read_articles_sync
+    articles = await read_articles_async(date) 
+    # articles = await run_in_threadpool(read_articles_sync, date)    
+    # logger.debug(f"Articles lus: len({articles})")
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "articles": articles}
+    )    
+
+@app.get("/sync")
+def read_articles_sync(request: Request, date: str = None):
+    """Affiche les articles filtrés par date de publication."""
+    from app.db import read_articles_sync
+    articles = read_articles_sync(date) 
     logger.debug(f"Articles lus: len({articles})")
-    # for article in articles:
-    #     logger.info(f"Article: {article.title} - {article.published} {article.source}")   
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "articles": articles}
     )
 
 @app.get("/search")
-def search_articles(
+async def search_articles(
     request: Request,
     q: str,
     date_min: Optional[str] = None,
@@ -75,9 +94,9 @@ def search_articles(
     except ValueError:
         return {"error": "Format de date invalide. Utilisez YYYY-MM-DD."}
 
-    with get_db() as session:
+    async with get_db_async() as session:
         # Appel de la recherche FTS
-        results = ArticleFTS.search(
+        results = await ArticleFTS.search(
             session=session,
             query=q,
             date_min=date_min,
