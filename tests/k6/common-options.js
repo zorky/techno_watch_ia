@@ -1,9 +1,9 @@
 // common-options.js
 // Configuration partagée pour les tests K6
 
-export const options = createOptions({
-  http_req_duration: ['p(50)<100', 'p(95)<300', 'p(99)<800'],
-});
+// export const options = createOptions({
+//   http_req_duration: ['p(50)<100', 'p(95)<300', 'p(99)<800'],
+// });
 
 export const commonOptions = {
   scenarios: {
@@ -28,7 +28,7 @@ export const commonOptions = {
     ],
     http_req_failed: ['rate<0.01'],  // Moins de 1% d'erreurs
     checks: ['rate>0.99'],            // 99% des checks doivent passer
-    // ...customThresholds, // Permet d'ajouter des thresholds spécifiques par test
+    // ...createOptions, // Permet d'ajouter des thresholds spécifiques par test
   },
 };
 
@@ -44,32 +44,3 @@ export function createChecks(name, maxDuration = 500) {
 export function randomSleep(min = 1, max = 3) {
   sleep(Math.random() * (max - min) + min);
 }
-
-// export const options = {
-//   scenarios: {
-//     // Scénario de stress test avec rampe
-//     stress_test: {
-//       executor: 'ramping-vus',
-//       startVUs: 0,
-//       stages: [
-//         { duration: '30s', target: 10 },
-//         { duration: '1m', target: 50 },
-//         { duration: '30s', target: 100 },
-//         { duration: '1m', target: 200 },
-//         { duration: '30s', target: 0 },
-//       ],
-//       gracefulRampDown: '30s',
-//     },
-//   },
-//   thresholds: {
-//     http_req_duration: [
-//       'p(50)<200',
-//       'p(95)<500',
-//       'p(99)<1000',
-//     ],
-//     'http_req_duration{name:HomePage}': ['p(95)<400'], // Threshold spécifique
-//     'http_req_duration{name:FilterByDate}': ['p(95)<600'],
-//     http_req_failed: ['rate<0.01'],
-//     checks: ['rate>0.99'], // 99% des checks réussis
-//   },
-// };

@@ -54,4 +54,11 @@ Comparaison avec le script analyse.py : compare les 2 fichiers json async et syn
 $ python analyse.py
 ```
 
+par fichier
+
+```bash
+$ python k6_analyser.py results_async.json k6_async_dashboard.png
+$ python k6_analyser.py results_sync.json k6_sync_dashboard.png
+```
+
 K6 reporter https://github.com/benc-uk/k6-reporter

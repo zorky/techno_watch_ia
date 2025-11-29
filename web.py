@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi import Request
+from fastapi.concurrency import run_in_threadpool
 
 from dotenv import load_dotenv
 
@@ -35,12 +36,14 @@ register_jinja_filters(templates.env)
 async def read_articles_async(request: Request, date: str = None):
     """Affiche les articles filtrés par date de publication."""
     from app.db import read_articles_async
+    # from app.db import read_articles_sync
     articles = await read_articles_async(date) 
-    logger.debug(f"Articles lus: len({articles})")
+    # articles = await run_in_threadpool(read_articles_sync, date)    
+    # logger.debug(f"Articles lus: len({articles})")
     return templates.TemplateResponse(
         "index.html",
         {"request": request, "articles": articles}
-    )
+    )    
 
 @app.get("/sync")
 def read_articles_sync(request: Request, date: str = None):
