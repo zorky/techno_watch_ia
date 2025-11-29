@@ -1,36 +1,25 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { commonOptions, createChecks } from './common-options.js';
 
-export const options = {
-  stages: [
-    { duration: '30s', target: 10 },  // Monte à 10 users en 30s
-    { duration: '1m', target: 50 },   // Monte à 50 users en 1 min
-    { duration: '30s', target: 100 }, // Monte à 100 users en 30s
-    { duration: '1m', target: 200 },  // Reste à 200 users pendant 1 min
-    { duration: '30s', target: 0 },   // Redescend à 0
-  ],
-  thresholds: {
-    http_req_duration: ['p(95)<500'], // 95% des requêtes < 500ms
-    http_req_failed: ['rate<0.01'],   // Moins de 1% d'erreurs
-  },
-};
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:8000/sync';
+
+export const options = commonOptions;
 
 export default function () {
   // Test 1: Page principale (tous les articles)
-  let res = http.get('http://localhost:8000/');
-  check(res, {
-    'status is 200': (r) => r.status === 200,
-    'response time < 500ms': (r) => r.timings.duration < 500,
+  let res = http.get(`${BASE_URL}/`, {
+    tags: { name: 'HomePage' }
   });
+  check(res, createChecks('HomePage', 500));
 
-  sleep(1); // Pause de 1s entre les requêtes
+  sleep(Math.random() * 2 + 1);
 
   // Test 2: Filtrage par date
-  //   res = http.get('http://localhost:8000/async?date=2024');
-  res = http.get('http://localhost:8000/?date=2025-10-29');
-  check(res, {
-    'status is 200': (r) => r.status === 200,
+  res = http.get(`${BASE_URL}/?date=2025-10-29`, {
+    tags: { name: 'FilterByDate' }
   });
+  check(res, createChecks('FilterByDate', 600));
 
-  sleep(1);
+  sleep(Math.random() * 2 + 1);
 }
