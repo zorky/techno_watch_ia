@@ -107,18 +107,6 @@ Se résume à un seul script à lancer
 $ python -m app [--debug]
 ```
 
-Ancienne version :
-
-```bash
-$ python main_agent.py
-```
-
-ou pour obtenir plus d'informations 
-
-```bash
-$ python main_agent.py --debug
-```
-
 ## Tests
 
 ```bash 
@@ -130,10 +118,18 @@ $ pytest tests/test_send_articles_email.py -v
 ## Interface UI pour les articles résumés
 
 ```bash
-$ uvicorn web:app --reload
+$ uvicorn web:app --loop asyncio [--reload]
 ```
 
-Sur http://127.0.0.1:8000/
+avec multi workers 
+
+```bash
+$ uvicorn web:app --workers $(nproc) --loop asyncio [--reload]
+```
+
+`--loop asyncio` dépend de l'environnement d'exécution
+
+L'application est accessible sur http://127.0.0.1:8000/
 
 ## L'automate exécuté 
 
@@ -168,3 +164,9 @@ Les branches doivent suivre le format :
 - `chore/` pour des tâches de maintenance.
 
 Exemple : `feat/implement-source-weights`
+
+## Performances tests K6
+
+voir [README](tests/k6/README.md)
+
+

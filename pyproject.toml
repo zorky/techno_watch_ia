@@ -24,13 +24,18 @@ dependencies = [
     "grandalf>=0.8",
     "matplotlib>=3.10.6",
     "nltk>=3.9.1",
-    "sqlalchemy>=2.0.43",
+    "sqlalchemy[asyncio]>=2.0.43",
     "fastapi>=0.116.1",
     "uvicorn>=0.35.0",
     "pytz>=2025.2",
     "praw>=7.8.1",
     "tiktoken>=0.11.0",
     "atproto>=0.0.62",
+    "aiosqlite>=0.21.0",
+    "pandas>=2.3.3",
+    "gunicorn>=23.0.0",
+    "faker>=38.2.0",
+    "mypy>=1.19.1",
 ]
 
 [tool.uv.sources]
