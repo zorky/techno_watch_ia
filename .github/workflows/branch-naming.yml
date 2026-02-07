@@ -10,11 +10,11 @@ jobs:
       - name: Validate branch name
         run: |
           BRANCH_NAME="${{ github.head_ref }}"
-          BRANCH_REGEX="^(feat|fix|docs|refactor|test|chore)\/[a-z0-9\-]+$"
+          BRANCH_REGEX="^(feat|fix|docs|refactor|test|bump|chore)\/[a-z0-9\-]+$"
 
           if [[ ! $BRANCH_NAME =~ $BRANCH_REGEX ]]; then
             echo "❌ Le nom de la branche '$BRANCH_NAME' ne respecte pas la convention."
-            echo "Utilisez un préfixe parmi : feat/, fix/, docs/, refactor/, test/, chore/"
+            echo "Utilisez un préfixe parmi : feat/, fix/, docs/, refactor/, test/, chore/, /bump"
             exit 1
           fi
           echo "✅ Le nom de la branche '$BRANCH_NAME' respecte la convention."
