@@ -16,6 +16,7 @@ __all__ = [
     "get_rss_urls",
     "get_subs_reddit_urls",
     "get_bluesky_urls",
+    "get_web_urls",
 ]
 
 
@@ -24,11 +25,13 @@ def register_fetchers():
     from app.services.fetchers.reedit_fetcher import RedditFetcher
     from app.services.fetchers.rss_fetcher import RSSFetcher
     from app.services.fetchers.bluesky_fetcher import BlueskyFetcher
+    from app.services.fetchers.web_fetcher import WebFetcher
     from app.services.models import SourceType
 
     FetcherFactory.register_fetcher(SourceType.RSS, RSSFetcher)
     FetcherFactory.register_fetcher(SourceType.REDDIT, RedditFetcher)
     FetcherFactory.register_fetcher(SourceType.BLUESKY, BlueskyFetcher)
+    FetcherFactory.register_fetcher(SourceType.WEB, WebFetcher)
 
 
 def get_rss_urls():
@@ -156,3 +159,41 @@ def get_bluesky_urls():
         raise ValueError("Aucun fichier Bluesky spécifié.")
 
     return _load_sources_from_config(BLUESKY_FILE, SourceType.BLUESKY.value)
+
+
+def get_web_urls():
+    """
+    Obtient la liste des URL web à traiter à partir du fichier data/myweb.txt
+    
+    Returns:
+        list[Source]: Liste des sources web configurées
+    """
+    WEB_FILE = get_environment_variable("WEB_FILE", "data/myweb.txt")
+    
+    logger.info(f"Chargement des URLs web depuis {WEB_FILE}")
+    
+    try:
+        with open(WEB_FILE, "r", encoding="utf-8") as f:
+            urls = [line.strip() for line in f.readlines() if line.strip()]
+        
+        # Création des objets Source pour chaque URL
+        sources = []
+        for url in urls:
+            if url:  # Ignorer les lignes vides
+                source = Source(
+                    type=SourceType.WEB,
+                    url=url,
+                    name=f"Web Source: {url}",
+                    link=url
+                )
+                sources.append(source)
+                logger.debug(f"Source web ajoutée: {url}")
+        
+        return sources
+        
+    except FileNotFoundError:
+        logger.warning(f"Fichier {WEB_FILE} non trouvé. Aucune source web ne sera traitée.")
+        return []
+    except Exception as e:
+        logger.error(f"Erreur lors de la lecture du fichier {WEB_FILE}: {e}")
+        return []
