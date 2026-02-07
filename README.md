@@ -50,7 +50,7 @@ $ source .venv/Scripts/activate # ou source .venv/scripts/activate
 $ uv sync --dev
 ```
 
-/!\ torch avec CUDA 118 est installé pour une utilisation du GPU pour les embeddings, voir selon la config. de la station de travail (Windows / Linux ou Mac) /!\
+/!\ torch avec CUDA 118 ou supérieur est installé pour une utilisation du GPU pour les embeddings, voir selon la config. de la station de travail (Windows / Linux ou Mac) /!\
 
 ### Prérequis
 
