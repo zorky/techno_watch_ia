@@ -11,16 +11,36 @@ from app.services.models import SourceType
 logging.basicConfig(level=logging.INFO)
 
 
-#
+#######################################################
 # Filtres pour les templates jinja2 mail ou web
 # champ | filtre
-#
+#######################################################
+
 def format_date(value):
-    """filtre jinga2 pour formatage de la date en FR"""
-    if isinstance(value, str):
-        date_obj = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S")
-        return date_obj.strftime("%d/%m/%Y")
-    return value.strftime("%d/%m/%Y")
+    """
+    filtre jinga2 pour formatage de la date en FR
+    Args:
+        value: une date au format ISO ou un objet datetime
+    Returns:
+        une date formatée en "dd/mm/yyyy" ou "N/A" si la date est invalide ou manquante
+
+    la date peut être au format ISO (ex: "2024-06-01T12:34:56") ou un objet datetime, s'il y a des microsecondes, elles seront ignorées (ex: "2026-02-07T13:58:36.252626")
+    """
+    logging.info(f"format_date: value={value} ({type(value)})")
+    
+    if not value:
+        return "N/A"
+    
+    try:
+        if isinstance(value, str):            
+            if '.' in value: # supprime les microsecondes si présentes
+                value = value.split('.')[0]
+            date_obj = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S")
+            return date_obj.strftime("%d/%m/%Y")
+        return value.strftime("%d/%m/%Y")
+    except Exception as e:
+        logging.error(f"Erreur format_date: {e} pour value={value}")
+        return "N/A"
 
 
 def format_local_datetime(utc_datetime, tz: str = "Europe/Paris"):
