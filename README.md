@@ -6,7 +6,7 @@ Objectif : développer un agent avec LangGraph qui effectue une veille technolog
 Process déroulé :
 
 - Lit un OPML contenant les flux RSS / Atom ou des subs Reddit / comptes Bluesky
-- Lit les flux RSS / Atom ou subs Reddit / flux Bluesky pour obtenir leur contenu
+- Lit les flux RSS / Atom ou subs Reddit / flux Bluesky / pages Web pour obtenir leur contenu
 - Indexe le contenu obtenu à l'aide d'une base vectorielle
 - Recherche dans le contenu de mots clés (vectorisés) prédéfinis 
 - Les articles trouvés sur un seuil prédéfini remontent (scoring avec similartié cosinus)
@@ -74,6 +74,7 @@ les 3 clés suivantes permettent de désactiver les fetchers selon le service
 RSS_FETCH=true
 REDDIT_FETCH=true
 BLUESKY_FETCH=true
+WEB_FETCH=true
 
 ```
 # Configuration LLM et limite inférence

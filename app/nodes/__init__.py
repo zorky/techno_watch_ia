@@ -3,6 +3,7 @@ from .fetch_nodes import (
     fetch_rss_node,
     fetch_reddit_node,
     fetch_bluesky_node,
+    fetch_web_node,
     merge_fetched_articles,
 )
 from .filter_nodes import filter_node
@@ -16,6 +17,7 @@ __all__ = [
     "fetch_rss_node",
     "fetch_reddit_node",
     "fetch_bluesky_node",
+    "fetch_web_node",
     "merge_fetched_articles",
     "filter_node",
     "summarize_node",

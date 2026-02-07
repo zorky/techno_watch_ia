@@ -13,6 +13,7 @@ from .utils_fetch_nodes import (
     register_fetchers,
     get_bluesky_urls,
     get_subs_reddit_urls,
+    get_web_urls,
 )
 
 import logging
@@ -91,6 +92,22 @@ def fetch_bluesky_node(state: UnifiedState) -> dict:
     return {"bluesky_articles": all_articles}
 
 
+def fetch_web_node(state: UnifiedState) -> dict:
+    """fetch des URLs web"""
+    start = time.time()
+    logger.info(f"🔵 WEB fetch START at {start}")
+
+    fetcher_web = FetcherFactory.create_fetcher(SourceType.WEB)
+    sources_urls = get_web_urls()
+    all_articles = fetch_articles(fetcher_web, sources_urls)
+
+    logger.info(Fore.CYAN + f"fetch_web_node : {len(all_articles)} articles WEB :")
+
+    logger.info(Fore.WHITE + f"🔵 WEB fetch END after {time.time() - start:.2f}s")
+
+    return {"web_articles": all_articles}
+
+
 def dispatch_node(state: UnifiedState) -> UnifiedState:
     """dispatcher vers les noeuds fetchers"""
     register_fetchers()
@@ -108,6 +125,7 @@ def merge_fetched_articles(state: UnifiedState) -> dict:
     all_articles.extend(state.rss_articles or [])
     all_articles.extend(state.reddit_articles or [])
     all_articles.extend(state.bluesky_articles or [])
+    all_articles.extend(state.web_articles or [])
 
     if state.rss_articles:
         logger.info(f"Clés d'un article RSS : {list(state.rss_articles[0].keys())}")
@@ -118,6 +136,10 @@ def merge_fetched_articles(state: UnifiedState) -> dict:
     if state.bluesky_articles:
         logger.info(
             f"Clés d'un article Bluesky : {list(state.bluesky_articles[0].keys())}"
+        )
+    if state.web_articles:
+        logger.info(
+            f"Clés d'un article Web : {list(state.web_articles[0].keys())}"
         )
 
     source_counts = Counter(item["source"].value for item in all_articles)
