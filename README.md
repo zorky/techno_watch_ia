@@ -15,22 +15,6 @@ Process déroulé :
 
 Une page web est également disponible pour lister l'historique des résumés.
 
-# Techno Watch Tool
-
-Objective: Develop an agent using LangGraph to perform tech watch using RSS feeds, Reddit channels and Blueky profils.
-
-Process
-
-- Reads an OPML file containing RSS/Atom feeds or a Json file pour Reddit / Bluesky
-- Fetches and parses the sources feed content
-- Indexes the content using a vector database
-- Searches for predefined (vectorized) keywords in the content
-- Retrieves articles that meet a predefined similarity threshold (cosine similarity scoring)
-- Summarizes the filtered articles
-- Sends the results by email
-
-A web site is available to display the summaries history.
-
 ## Environnement
 
 ### uv
