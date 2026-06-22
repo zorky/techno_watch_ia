@@ -8,6 +8,7 @@ class SourceType(str, Enum):
     RSS = "rss"
     REDDIT = "reddit"
     BLUESKY = "bluesky"
+    WEB = "web"
     # Futures potentielles sources
     # LINKEDIN = "linkedin"
     # TWITTER = "twitter"
@@ -41,6 +42,7 @@ class UnifiedState(BaseModel):
     rss_articles: Annotated[Optional[list[dict]], add] = None
     reddit_articles: Annotated[Optional[list[dict]], add] = None
     bluesky_articles: Annotated[Optional[list[dict]], add] = None
+    web_articles: Annotated[Optional[list[dict]], add] = None
 
     articles: Optional[list[dict]] = None
     filtered_articles: Optional[list[dict]] = None

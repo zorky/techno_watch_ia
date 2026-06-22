@@ -4,7 +4,7 @@
 Agent RSS avec résumé automatique via LLM local.
 
 Ce script / cli exécute ces actions, dans l'ordre :
-- Lit une liste de flux RSS / Reddit / Bluesky
+- Lit une liste de flux RSS / Reddit / Bluesky / Web
 - Filtre les articles selon des mots-clés
 - Résume les articles avec un modèle LLM local (Ollama)
 - Affiche les résultats en console
@@ -47,6 +47,7 @@ from .nodes import (
     fetch_rss_node,
     fetch_reddit_node,
     fetch_bluesky_node,
+    fetch_web_node,
     merge_fetched_articles,
 )
 
@@ -95,7 +96,7 @@ OPML_FILE = get_environment_variable("OPML_FILE", "my.opml")
 RSS_FETCH = True
 REDDIT_FETCH = True
 BLUESKY_FETCH = True
-
+WEB_FETCH = True
 
 def which_fetcher():
     do_rss = get_environment_variable("RSS_FETCH", "1")
@@ -107,7 +108,10 @@ def which_fetcher():
     do_bluesky = get_environment_variable("BLUESKY_FETCH", "1")
     BLUESKY_FETCH = do_bluesky.lower() in ("1", "true", "yes", "on", "oui")
     logger.info(Fore.BLUE + f"BLUESKY_FETCH : {BLUESKY_FETCH}")
-    return RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH
+    do_web = get_environment_variable("WEB_FETCH", "1")
+    WEB_FETCH = do_web.lower() in ("1", "true", "yes", "on", "oui")
+    logger.info(Fore.BLUE + f"WEB_FETCH : {WEB_FETCH}")
+    return RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH, WEB_FETCH
 
 
 def preprocess_text(text):
@@ -176,14 +180,15 @@ def create_legacy_wrapper(legacy_node_func):
 # fetch -> filter -> summarize -> output
 # =========================
 def make_graph():
-    RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH = which_fetcher()
+    RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH, WEB_FETCH = which_fetcher()
     fetcher_flags = {
         "RSS_FETCH": RSS_FETCH,
         "REDDIT_FETCH": REDDIT_FETCH,
         "BLUESKY_FETCH": BLUESKY_FETCH,
+        "WEB_FETCH": WEB_FETCH,
     }
     logger.info(
-        f"Fetchers activés: RSS={RSS_FETCH}, Reddit={REDDIT_FETCH}, Bluesky={BLUESKY_FETCH}"
+        f"Fetchers activés: RSS={RSS_FETCH}, Reddit={REDDIT_FETCH}, Bluesky={BLUESKY_FETCH}, Web={WEB_FETCH}"
     )
 
     color = Fore.BLUE
@@ -203,7 +208,7 @@ def make_graph():
     if not any(fetcher_flags.values()):
         logger.info(Fore.RED + f"❌ Aucune source activée, on arrête !")
         raise ValueError(
-            "Au moins un fetcher doit être activé avec l'une des 3 variables de .env : RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH"
+            "Au moins un fetcher doit être activé avec l'une des 4 variables de .env : RSS_FETCH, REDDIT_FETCH, BLUESKY_FETCH, WEB_FETCH"
         )
 
     if RSS_FETCH:
@@ -212,6 +217,8 @@ def make_graph():
         graph.add_node("fetch_reddit", RunnableLambda(fetch_reddit_node))
     if BLUESKY_FETCH:
         graph.add_node("fetch_bluesky", RunnableLambda(fetch_bluesky_node))
+    if WEB_FETCH:
+        graph.add_node("fetch_web", RunnableLambda(fetch_web_node))
 
     # noeud de fusion des N fetchers précédents
     graph.add_node("merge_articles", RunnableLambda(merge_fetched_articles))
@@ -244,6 +251,9 @@ def make_graph():
     if BLUESKY_FETCH:
         graph.add_edge("dispatch", "fetch_bluesky")
         graph.add_edge("fetch_bluesky", "merge_articles")
+    if WEB_FETCH:
+        graph.add_edge("dispatch", "fetch_web")
+        graph.add_edge("fetch_web", "merge_articles")
 
     # on fusionne le tout
     graph.add_edge("merge_articles", "filter")

@@ -14,21 +14,6 @@ from app.services.fetchers.base_fetcher import BaseFetcher
 from app.services.models import Source, SourceType
 from app.core.logger import print_color
 
-# class ArticleBluesky(BaseModel):
-#     title: str
-#     summary: str
-#     link: str
-#     published: datetime
-#     source_type: str
-#     source: SourceType
-#     source_name: str
-#     author: str
-#     likes: int
-#     reposts: int
-#     replies: int
-#     score: str
-
-
 @fetcher_class
 class BlueskyFetcher(BaseFetcher):
     source_type = SourceType.BLUESKY.value

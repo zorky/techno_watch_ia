@@ -5,48 +5,46 @@ description = "Veille techno pour une revue de presse RSS/Atom, Reddit, Bluesky"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
+    # Torch
     "torch>=2.7.0",
     "torchvision>=0.22.0",
-        
+    # Embeddings / LLM
     "sentence-transformers>=5.1.0",
-
     "langgraph>=1.0.8",
     "langchain-community>=0.3.29",
     "langchain-ollama>=0.3.7",
-    "langchain-openai>=0.3.32",    
-
-    "faiss-cpu>=1.12.0",    
-    
+    "langchain-openai>=0.3.32",
+    "faiss-cpu>=1.12.0",
+    # Utils
     "python-dateutil>=2.9.0.post0",
     "scikit-learn>=1.7.1",
-    
     "beautifulsoup4>=4.13.5",
     "colorama>=0.4.6",
-    "python-dotenv>=1.0.0",    
+    "python-dotenv>=1.0.0",
+    ## RSS
     "feedparser>=6.0.11",
-
     "ipython>=9.5.0",
     "grandalf>=0.8",
     "matplotlib>=3.10.6",
     "nltk>=3.9.1",
-
+    # BDD
     "sqlalchemy[asyncio]>=2.0.43",
     "pydantic>=2.11.7",
     "aiosqlite>=0.21.0",
-
+    # Web
     "fastapi>=0.116.1",
     "uvicorn>=0.35.0",
     "gunicorn>=23.0.0",
-    
+    # Divers
     "pytz>=2025.2",
     "praw>=7.8.1",
     "tiktoken>=0.11.0",
     "atproto>=0.0.62",
-    
     "pandas>=2.3.3",
-    
     "faker>=38.2.0",
     "mypy>=1.19.1",
+    # Web 
+    "trafilatura>=2.0.0",
 ]
 
 [tool.uv.sources]

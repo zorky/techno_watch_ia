@@ -20,15 +20,19 @@ def _calculate_quotas(total_count):
     )
     bluesky_min = ceil(
         total_count * float(get_environment_variable("BLUESKY_WEIGHT", 20)) / 100
+    )    
+    web_min = ceil(
+        total_count * float(get_environment_variable("WEB_WEIGHT", 10)) / 100
     )
 
-    guaranteed_total = rss_min + reddit_min + bluesky_min
+    guaranteed_total = rss_min + reddit_min + bluesky_min + web_min
     remaining_slots = max(0, total_count - guaranteed_total)
 
     return {
         "rss_min": rss_min,
         "reddit_min": reddit_min,
         "bluesky_min": bluesky_min,
+        "web_min": web_min,
         "flexible": remaining_slots,
     }
 
@@ -59,7 +63,7 @@ def _apply_freshness_adjustment(articles_by_source: list[dict], quotas: dict) ->
 
 def _fill_flexible_slots(remaining_articles, flexible_slots, processed_sources: list):
     """Répartir les slots flexibles avec pondération"""
-    WEIGHTS = {"rss": 1.5, "reddit": 1.0, "bluesky": 1.2}
+    WEIGHTS = {"rss": 1.5, "reddit": 1.0, "bluesky": 1.2, "web": 1.0}
     logger.info(Fore.CYAN + f"{processed_sources}")
     # Mélanger et trier par score pondéré
     weighted_articles = []
